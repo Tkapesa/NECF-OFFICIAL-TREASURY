@@ -70,16 +70,23 @@ os.makedirs("uploads", exist_ok=True)
 @app.on_event("startup")
 def startup_event():
     init_db()
-    # Create default admin (username: admin, password: admin123)
+    # Create default superuser admin (username: admin, password: admin123)
     db = next(get_db())
-    if not db.query(Admin).filter(Admin.username == "admin").first():
+    existing_admin = db.query(Admin).filter(Admin.username == "admin").first()
+    if not existing_admin:
         admin = Admin(
             username="admin",
-            hashed_password=hash_password("admin123")
+            hashed_password=hash_password("admin123"),
+            is_superuser=True  # Make default admin a superuser
         )
         db.add(admin)
         db.commit()
-        print("Default admin created: username=admin, password=admin123")
+        print("✅ Default SUPERUSER admin created: username=admin, password=admin123")
+    elif not existing_admin.is_superuser:
+        # Upgrade existing admin to superuser
+        existing_admin.is_superuser = True
+        db.commit()
+        print("✅ Existing admin upgraded to SUPERUSER")
 
 
 # ============ AUTH UTILITIES ============
@@ -124,12 +131,148 @@ def login(username: str = Form(...), password: str = Form(...),
         print(f"❌ Password verification failed for user '{username}'")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Create access token
-    access_token = Authorize.create_access_token(subject=admin.username)
-    print(f"✅ Login successful for user '{username}'")
+    # Create access token with additional user info
+    access_token = Authorize.create_access_token(
+        subject=admin.username,
+        user_claims={"is_superuser": admin.is_superuser, "admin_id": admin.id}
+    )
+    print(f"✅ Login successful for user '{username}' (Superuser: {admin.is_superuser})")
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "is_superuser": admin.is_superuser,
+        "username": admin.username
+    }
 
+
+# ============ ADMIN MANAGEMENT ROUTES (SUPERUSER ONLY) ============
+
+@app.get("/api/admins")
+def get_admins(db: Session = Depends(get_db), Authorize: AuthJWT = Depends()):
+    """Superuser endpoint to get all admins"""
+    
+    # Verify token
+    Authorize.jwt_required()
+    current_username = Authorize.get_jwt_subject()
+    claims = Authorize.get_raw_jwt()
+    
+    # Check if superuser
+    if not claims.get("is_superuser", False):
+        raise HTTPException(status_code=403, detail="Superuser access required")
+    
+    admins = db.query(Admin).order_by(Admin.created_at.desc()).all()
+    
+    return {
+        "admins": [
+            {
+                "id": a.id,
+                "username": a.username,
+                "is_superuser": a.is_superuser,
+                "created_at": a.created_at.isoformat()
+            }
+            for a in admins
+        ]
+    }
+
+
+@app.post("/api/admins")
+def create_admin(
+    username: str = Form(...),
+    password: str = Form(...),
+    is_superuser: bool = Form(False),
+    db: Session = Depends(get_db),
+    Authorize: AuthJWT = Depends()
+):
+    """Superuser endpoint to create new admin"""
+    
+    # Verify token
+    Authorize.jwt_required()
+    current_username = Authorize.get_jwt_subject()
+    claims = Authorize.get_raw_jwt()
+    
+    # Check if superuser
+    if not claims.get("is_superuser", False):
+        raise HTTPException(status_code=403, detail="Superuser access required")
+    
+    # Check if username already exists
+    existing_admin = db.query(Admin).filter(Admin.username == username).first()
+    if existing_admin:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    # Validate password
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Create new admin
+    new_admin = Admin(
+        username=username,
+        hashed_password=hash_password(password),
+        is_superuser=is_superuser
+    )
+    
+    db.add(new_admin)
+    db.commit()
+    db.refresh(new_admin)
+    
+    print(f"✅ New admin created by {current_username}: {username} (Superuser: {is_superuser})")
+    
+    return {
+        "message": "Admin created successfully",
+        "admin": {
+            "id": new_admin.id,
+            "username": new_admin.username,
+            "is_superuser": new_admin.is_superuser,
+            "created_at": new_admin.created_at.isoformat()
+        }
+    }
+
+
+@app.delete("/api/admins/{admin_id}")
+def delete_admin(
+    admin_id: int,
+    db: Session = Depends(get_db),
+    Authorize: AuthJWT = Depends()
+):
+    """Superuser endpoint to delete an admin"""
+    
+    # Verify token
+    Authorize.jwt_required()
+    current_username = Authorize.get_jwt_subject()
+    claims = Authorize.get_raw_jwt()
+    
+    # Check if superuser
+    if not claims.get("is_superuser", False):
+        raise HTTPException(status_code=403, detail="Superuser access required")
+    
+    # Prevent deleting self
+    if claims.get("admin_id") == admin_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    admin = db.query(Admin).filter(Admin.id == admin_id).first()
+    
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    # Prevent deleting the last superuser
+    if admin.is_superuser:
+        superuser_count = db.query(Admin).filter(Admin.is_superuser == True).count()
+        if superuser_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the last superuser")
+    
+    username_deleted = admin.username
+    db.delete(admin)
+    db.commit()
+    
+    print(f"✅ Admin deleted by {current_username}: {username_deleted}")
+    
+    return {
+        "message": "Admin deleted successfully",
+        "username": username_deleted
+    }
+
+
+# ============ RECEIPT ROUTES ============
 
 @app.post("/api/receipts/upload")
 async def upload_receipt(

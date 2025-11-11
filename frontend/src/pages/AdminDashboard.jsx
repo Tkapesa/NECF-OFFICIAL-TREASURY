@@ -59,7 +59,9 @@ import MenuIcon from '@mui/icons-material/Menu';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import ReceiptTable from '../components/ReceiptTable';
+import AdminManagement from '../components/AdminManagement';
 import api from '../api';
 import axios from 'axios';
 
@@ -80,6 +82,8 @@ export default function AdminDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isSuperuser, setIsSuperuser] = useState(false);
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'admin-management'
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -95,8 +99,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     // Check if already logged in
     const token = localStorage.getItem('token');
+    const savedSuperuser = localStorage.getItem('is_superuser') === 'true';
     if (token) {
       setIsAuthenticated(true);
+      setIsSuperuser(savedSuperuser);
       setLoginOpen(false);
       fetchReceipts();
     } else {
@@ -116,6 +122,9 @@ export default function AdminDashboard() {
       const response = await axios.post('http://localhost:8000/api/login', formData);
       
       localStorage.setItem('token', response.data.access_token);
+      localStorage.setItem('is_superuser', response.data.is_superuser || false);
+      localStorage.setItem('username', response.data.username);
+      setIsSuperuser(response.data.is_superuser || false);
       setIsAuthenticated(true);
       setLoginOpen(false);
       fetchReceipts();
@@ -144,8 +153,12 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('is_superuser');
+    localStorage.removeItem('username');
     setIsAuthenticated(false);
+    setIsSuperuser(false);
     setLoginOpen(true);
+    setCurrentView('dashboard');
     navigate('/admin');
   };
 
@@ -515,7 +528,8 @@ export default function AdminDashboard() {
       <List sx={{ px: 2, py: 3 }}>
         <ListItem disablePadding sx={{ mb: 1 }}>
           <ListItemButton 
-            selected={true}
+            selected={currentView === 'dashboard'}
+            onClick={() => { setCurrentView('dashboard'); setMobileOpen(false); }}
             sx={{
               borderRadius: 2,
               '&.Mui-selected': {
@@ -545,6 +559,29 @@ export default function AdminDashboard() {
             <ListItemText primary="Upload" />
           </ListItemButton>
         </ListItem>
+
+        {/* Admin Management - Only visible to superusers */}
+        {isSuperuser && (
+          <ListItem disablePadding sx={{ mb: 1 }}>
+            <ListItemButton 
+              selected={currentView === 'admin-management'}
+              onClick={() => { setCurrentView('admin-management'); setMobileOpen(false); }}
+              sx={{
+                borderRadius: 2,
+                '&.Mui-selected': {
+                  bgcolor: '#6B1C23',
+                  '&:hover': { bgcolor: '#4A0E13' },
+                },
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+              }}
+            >
+              <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+                <SupervisorAccountIcon />
+              </ListItemIcon>
+              <ListItemText primary="Admin Management" />
+            </ListItemButton>
+          </ListItem>
+        )}
       </List>
 
       <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', mx: 2 }} />
@@ -947,6 +984,8 @@ export default function AdminDashboard() {
         >
           {isAuthenticated ? (
             <>
+              {currentView === 'dashboard' ? (
+                <>
               {/* Statistics Cards */}
               {loading ? (
                 <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mb: { xs: 3, sm: 4 } }}>
@@ -1409,6 +1448,10 @@ export default function AdminDashboard() {
                   onUpdate={fetchReceipts}
                 />
               )}
+                </>
+              ) : currentView === 'admin-management' ? (
+                <AdminManagement />
+              ) : null}
             </>
           ) : null}
         </Box>

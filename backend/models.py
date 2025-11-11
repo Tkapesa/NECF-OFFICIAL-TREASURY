@@ -1,7 +1,7 @@
 """
 Database models for Church Treasury System
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean
 from sqlalchemy.sql import func
 from database import Base
 
@@ -13,6 +13,7 @@ class Admin(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    is_superuser = Column(Boolean, default=False, nullable=False)  # Superuser flag
     created_at = Column(DateTime, server_default=func.now())
 
 

@@ -84,6 +84,7 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'admin-management'
+  const [loggedInUsername, setLoggedInUsername] = useState('Admin');
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -100,9 +101,11 @@ export default function AdminDashboard() {
     // Check if already logged in
     const token = localStorage.getItem('token');
     const savedSuperuser = localStorage.getItem('is_superuser') === 'true';
+    const savedUsername = localStorage.getItem('username') || 'Admin';
     if (token) {
       setIsAuthenticated(true);
       setIsSuperuser(savedSuperuser);
+      setLoggedInUsername(savedUsername);
       setLoginOpen(false);
       fetchReceipts();
     } else {
@@ -122,9 +125,16 @@ export default function AdminDashboard() {
       const response = await axios.post('http://localhost:8000/api/login', formData);
       
       localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('is_superuser', response.data.is_superuser || false);
+      localStorage.setItem('is_superuser', String(response.data.is_superuser || false));
       localStorage.setItem('username', response.data.username);
+      
+      console.log('Login response:', {
+        is_superuser: response.data.is_superuser,
+        stored: localStorage.getItem('is_superuser')
+      });
+      
       setIsSuperuser(response.data.is_superuser || false);
+      setLoggedInUsername(response.data.username || 'Admin');
       setIsAuthenticated(true);
       setLoginOpen(false);
       fetchReceipts();
@@ -1285,7 +1295,7 @@ export default function AdminDashboard() {
                             fontSize: { xs: '1.1rem', sm: '1.25rem', md: '1.5rem' },
                           }}
                         >
-                          Welcome back, Admin! 👋
+                          Welcome back, {loggedInUsername}! 👋
                         </Typography>
                         <Typography 
                           variant="body1" 

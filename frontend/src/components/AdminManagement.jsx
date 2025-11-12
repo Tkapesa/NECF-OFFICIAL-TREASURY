@@ -48,6 +48,7 @@ export default function AdminManagement() {
     password: '',
     is_superuser: false,
   });
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     fetchAdmins();
@@ -70,6 +71,31 @@ export default function AdminManagement() {
     }
   };
 
+  const validatePassword = (password) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+    if (password.length < minLength) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (!hasUpperCase) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!hasLowerCase) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!hasNumber) {
+      return 'Password must contain at least one number';
+    }
+    if (!hasSpecialChar) {
+      return 'Password must contain at least one special character (!@#$%^&*...)';
+    }
+    return '';
+  };
+
   const handleCreateAdmin = async () => {
     if (!newAdmin.username || !newAdmin.password) {
       setSnackbar({
@@ -80,10 +106,12 @@ export default function AdminManagement() {
       return;
     }
 
-    if (newAdmin.password.length < 6) {
+    const passwordValidationError = validatePassword(newAdmin.password);
+    if (passwordValidationError) {
+      setPasswordError(passwordValidationError);
       setSnackbar({
         open: true,
-        message: 'Password must be at least 6 characters',
+        message: passwordValidationError,
         severity: 'warning',
       });
       return;
@@ -107,6 +135,7 @@ export default function AdminManagement() {
 
       setCreateDialogOpen(false);
       setNewAdmin({ username: '', password: '', is_superuser: false });
+      setPasswordError('');
       fetchAdmins();
     } catch (error) {
       console.error('Error creating admin:', error);
@@ -298,11 +327,72 @@ export default function AdminManagement() {
             label="Password"
             type="password"
             value={newAdmin.password}
-            onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+            onChange={(e) => {
+              setNewAdmin({ ...newAdmin, password: e.target.value });
+              setPasswordError('');
+            }}
             margin="normal"
             required
-            helperText="Minimum 6 characters"
+            error={!!passwordError}
+            helperText={
+              passwordError || 
+              'Must be 8+ characters with uppercase, lowercase, number, and special character'
+            }
           />
+          {newAdmin.password && (
+            <Box sx={{ mt: 1, mb: 2 }}>
+              <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
+                Password Strength:
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Chip
+                  label="8+ chars"
+                  size="small"
+                  sx={{
+                    bgcolor: newAdmin.password.length >= 8 ? '#4caf50' : '#f44336',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                  }}
+                />
+                <Chip
+                  label="Uppercase"
+                  size="small"
+                  sx={{
+                    bgcolor: /[A-Z]/.test(newAdmin.password) ? '#4caf50' : '#f44336',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                  }}
+                />
+                <Chip
+                  label="Lowercase"
+                  size="small"
+                  sx={{
+                    bgcolor: /[a-z]/.test(newAdmin.password) ? '#4caf50' : '#f44336',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                  }}
+                />
+                <Chip
+                  label="Number"
+                  size="small"
+                  sx={{
+                    bgcolor: /[0-9]/.test(newAdmin.password) ? '#4caf50' : '#f44336',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                  }}
+                />
+                <Chip
+                  label="Special (!@#$...)"
+                  size="small"
+                  sx={{
+                    bgcolor: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newAdmin.password) ? '#4caf50' : '#f44336',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                  }}
+                />
+              </Box>
+            </Box>
+          )}
           <FormControlLabel
             control={
               <Checkbox

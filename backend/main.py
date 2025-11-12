@@ -11,6 +11,7 @@ from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
 import shutil
 import os
+import re
 from typing import Optional
 
 from database import get_db, init_db
@@ -99,6 +100,48 @@ def verify_password(plain_password, hashed_password):
 def hash_password(password: str) -> str:
     """Hash a password"""
     return pwd_context.hash(password)
+
+
+def validate_strong_password(password: str) -> bool:
+    """
+    Validate password strength:
+    - Minimum 8 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character
+    """
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=400, 
+            detail="Password must be at least 8 characters long"
+        )
+    
+    if not re.search(r'[A-Z]', password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one uppercase letter"
+        )
+    
+    if not re.search(r'[a-z]', password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one lowercase letter"
+        )
+    
+    if not re.search(r'[0-9]', password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one number"
+        )
+    
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>/?]', password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least one special character (!@#$%^&*...)"
+        )
+    
+    return True
 
 
 # ============ API ROUTES ============
@@ -200,9 +243,8 @@ def create_admin(
     if existing_admin:
         raise HTTPException(status_code=400, detail="Username already exists")
     
-    # Validate password
-    if len(password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    # Validate strong password
+    validate_strong_password(password)
     
     # Create new admin
     new_admin = Admin(

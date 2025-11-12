@@ -527,7 +527,7 @@ export default function AdminDashboard() {
             marginBottom: '8px'
           }} 
         />
-        <Typography variant="body2" fontWeight="bold" sx={{ textAlign: 'center', color: '#6B1C23' }}>
+        <Typography variant="body2" fontWeight="bold" sx={{ textAlign: 'center', color: 'white' }}>
           NECF Treasury
         </Typography>
       </Box>

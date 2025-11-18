@@ -60,6 +60,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import ReceiptTable from '../components/ReceiptTable';
 import AdminManagement from '../components/AdminManagement';
 import api from '../api';
@@ -85,6 +87,7 @@ export default function AdminDashboard() {
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'admin-management'
   const [loggedInUsername, setLoggedInUsername] = useState('Admin');
+  const [darkMode, setDarkMode] = useState(false);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -102,10 +105,12 @@ export default function AdminDashboard() {
     const token = localStorage.getItem('token');
     const savedSuperuser = localStorage.getItem('is_superuser') === 'true';
     const savedUsername = localStorage.getItem('username') || 'Admin';
+    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
     if (token) {
       setIsAuthenticated(true);
       setIsSuperuser(savedSuperuser);
       setLoggedInUsername(savedUsername);
+      setDarkMode(savedDarkMode);
       setLoginOpen(false);
       fetchReceipts();
     } else {
@@ -170,6 +175,12 @@ export default function AdminDashboard() {
     setLoginOpen(true);
     setCurrentView('dashboard');
     navigate('/admin');
+  };
+
+  const toggleDarkMode = () => {
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
+    localStorage.setItem('darkMode', String(newDarkMode));
   };
 
   const handleMenuOpen = (event) => {
@@ -632,6 +643,23 @@ export default function AdminDashboard() {
       {/* Bottom Actions */}
       <Box sx={{ mt: 'auto', p: 2 }}>
         <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', mb: 2 }} />
+        
+        {/* Dark Mode Toggle */}
+        <ListItem disablePadding sx={{ mb: 1 }}>
+          <ListItemButton 
+            onClick={toggleDarkMode}
+            sx={{
+              borderRadius: 2,
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+            }}
+          >
+            <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+            </ListItemIcon>
+            <ListItemText primary={darkMode ? 'Light Mode' : 'Dark Mode'} />
+          </ListItemButton>
+        </ListItem>
+
         <ListItem disablePadding>
           <ListItemButton 
             onClick={() => { handleLogout(); setMobileOpen(false); }}
@@ -814,15 +842,15 @@ export default function AdminDashboard() {
           width: '100%',
           height: '100vh',
           overflow: 'hidden',
-          bgcolor: '#f5f5f5',
+          bgcolor: darkMode ? '#121212' : '#f5f5f5',
         }}
       >
         {/* Top Bar - Fixed */}
         {isAuthenticated && (
           <Box 
             sx={{ 
-              bgcolor: 'white', 
-              borderBottom: '1px solid #e0e0e0', 
+              bgcolor: darkMode ? '#1e1e1e' : 'white', 
+              borderBottom: darkMode ? '1px solid #333' : '1px solid #e0e0e0', 
               p: { xs: 1.5, sm: 2 },
               position: 'sticky',
               top: 0,
@@ -837,11 +865,11 @@ export default function AdminDashboard() {
                   aria-label="open drawer"
                   edge="start"
                   onClick={handleDrawerToggle}
-                  sx={{ display: { md: 'none' } }}
+                  sx={{ display: { md: 'none' }, color: darkMode ? 'white' : 'inherit' }}
                 >
                   <MenuIcon />
                 </IconButton>
-                <Typography variant="h5" fontWeight="bold" sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
+                <Typography variant="h5" fontWeight="bold" sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' }, color: darkMode ? 'white' : 'inherit' }}>
                   Receipts
                 </Typography>
               </Box>
@@ -854,6 +882,12 @@ export default function AdminDashboard() {
                     textTransform: 'none',
                     fontSize: { xs: '0.8rem', sm: '0.875rem' },
                     px: { xs: 1.5, sm: 2 },
+                    color: darkMode ? 'white' : 'inherit',
+                    borderColor: darkMode ? '#555' : 'rgba(0, 0, 0, 0.23)',
+                    '&:hover': {
+                      borderColor: darkMode ? '#777' : 'rgba(0, 0, 0, 0.23)',
+                      bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+                    },
                   }}
                 >
                   Refresh
@@ -923,14 +957,20 @@ export default function AdminDashboard() {
                   flex: { xs: '1 1 100%', sm: '1 1 auto' },
                   minWidth: { xs: 'auto', sm: 300 },
                   boxShadow: 'none',
-                  border: '1px solid #e0e0e0',
+                  border: darkMode ? '1px solid #333' : '1px solid #e0e0e0',
+                  bgcolor: darkMode ? '#2a2a2a' : 'white',
                 }}
               >
-                <IconButton sx={{ p: { xs: '8px', sm: '10px' } }}>
+                <IconButton sx={{ p: { xs: '8px', sm: '10px' }, color: darkMode ? 'white' : 'inherit' }}>
                   <SearchIcon />
                 </IconButton>
                 <InputBase
-                  sx={{ ml: 1, flex: 1, fontSize: { xs: '0.9rem', sm: '1rem' } }}
+                  sx={{ 
+                    ml: 1, 
+                    flex: 1, 
+                    fontSize: { xs: '0.9rem', sm: '1rem' },
+                    color: darkMode ? 'white' : 'inherit',
+                  }}
                   placeholder="Search receipts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -975,19 +1015,19 @@ export default function AdminDashboard() {
             flexGrow: 1, 
             p: { xs: 1.5, sm: 2, md: 3 }, 
             overflow: 'auto', 
-            bgcolor: '#f5f5f5',
+            bgcolor: darkMode ? '#121212' : '#f5f5f5',
             height: '100%',
             '&::-webkit-scrollbar': {
               width: '10px',
             },
             '&::-webkit-scrollbar-track': {
-              bgcolor: '#e0e0e0',
+              bgcolor: darkMode ? '#1e1e1e' : '#e0e0e0',
             },
             '&::-webkit-scrollbar-thumb': {
-              bgcolor: '#9e9e9e',
+              bgcolor: darkMode ? '#555' : '#9e9e9e',
               borderRadius: '5px',
               '&:hover': {
-                bgcolor: '#757575',
+                bgcolor: darkMode ? '#777' : '#757575',
               },
             },
           }}
@@ -1030,7 +1070,9 @@ export default function AdminDashboard() {
                     <Card 
                       elevation={3}
                       sx={{ 
-                        background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
+                        background: darkMode 
+                          ? 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)'
+                          : 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
                         color: 'white',
                         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                         cursor: 'pointer',
@@ -1093,13 +1135,15 @@ export default function AdminDashboard() {
                     <Card 
                       elevation={3}
                       sx={{ 
-                        background: 'linear-gradient(135deg, #1a1a1a 0%, #3a3a3a 100%)',
+                        background: darkMode
+                          ? 'linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%)'
+                          : 'linear-gradient(135deg, #1a1a1a 0%, #3a3a3a 100%)',
                         color: 'white',
                         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                         cursor: 'pointer',
                         '&:hover': {
                           transform: { xs: 'translateY(-4px) scale(1.01)', md: 'translateY(-8px) scale(1.02)' },
-                          boxShadow: '0 16px 32px rgba(26, 26, 26, 0.5)',
+                          boxShadow: darkMode ? '0 16px 32px rgba(42, 42, 42, 0.8)' : '0 16px 32px rgba(26, 26, 26, 0.5)',
                         },
                       }}
                     >
@@ -1156,7 +1200,9 @@ export default function AdminDashboard() {
                     <Card 
                       elevation={3}
                       sx={{ 
-                        background: 'linear-gradient(135deg, #8B2C33 0%, #6B1C23 100%)',
+                        background: darkMode
+                          ? 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)'
+                          : 'linear-gradient(135deg, #8B2C33 0%, #6B1C23 100%)',
                         color: 'white',
                         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                         cursor: 'pointer',
@@ -1219,13 +1265,15 @@ export default function AdminDashboard() {
                     <Card 
                       elevation={3}
                       sx={{ 
-                        background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
+                        background: darkMode
+                          ? 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)'
+                          : 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
                         color: 'white',
                         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                         cursor: 'pointer',
                         '&:hover': {
                           transform: { xs: 'translateY(-4px) scale(1.01)', md: 'translateY(-8px) scale(1.02)' },
-                          boxShadow: '0 16px 32px rgba(42, 42, 42, 0.5)',
+                          boxShadow: darkMode ? '0 16px 32px rgba(58, 58, 58, 0.8)' : '0 16px 32px rgba(42, 42, 42, 0.5)',
                         },
                       }}
                     >
@@ -1273,7 +1321,9 @@ export default function AdminDashboard() {
                   elevation={0}
                   sx={{ 
                     mb: { xs: 2, sm: 3, md: 4 },
-                    background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
+                    background: darkMode
+                      ? 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)'
+                      : 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
                     color: 'white',
                     position: 'relative',
                     overflow: 'hidden',
@@ -1418,18 +1468,18 @@ export default function AdminDashboard() {
                   sx={{ 
                     textAlign: 'center', 
                     py: 8,
-                    border: '2px dashed #e0e0e0',
+                    border: darkMode ? '2px dashed #333' : '2px dashed #e0e0e0',
                     borderRadius: 3,
-                    bgcolor: '#fafafa',
+                    bgcolor: darkMode ? '#2a2a2a' : '#fafafa',
                   }}
                 >
                   <Box sx={{ mb: 3 }}>
-                    <ReceiptIcon sx={{ fontSize: 80, color: '#bdbdbd' }} />
+                    <ReceiptIcon sx={{ fontSize: 80, color: darkMode ? '#666' : '#bdbdbd' }} />
                   </Box>
-                  <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ color: '#757575' }}>
+                  <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ color: darkMode ? '#aaa' : '#757575' }}>
                     No Receipts Found
                   </Typography>
-                  <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                  <Typography variant="body1" sx={{ mb: 3, color: darkMode ? '#888' : 'text.secondary' }}>
                     {searchQuery || statusFilter !== 'all' 
                       ? 'Try adjusting your search or filter criteria'
                       : 'Get started by uploading your first receipt'}
@@ -1456,6 +1506,7 @@ export default function AdminDashboard() {
                 <ReceiptTable 
                   receipts={filteredReceipts} 
                   onUpdate={fetchReceipts}
+                  darkMode={darkMode}
                 />
               )}
                 </>
@@ -1482,6 +1533,7 @@ export default function AdminDashboard() {
             boxShadow: '0 24px 48px rgba(0, 0, 0, 0.3)',
             m: { xs: 2, sm: 3 },
             maxWidth: { xs: 'calc(100% - 32px)', sm: 444 },
+            bgcolor: darkMode ? '#2a2a2a' : 'white',
           }
         }}
         BackdropProps={{
@@ -1541,10 +1593,17 @@ export default function AdminDashboard() {
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2,
+                  bgcolor: darkMode ? '#1e1e1e' : 'white',
+                  '& input': {
+                    color: darkMode ? 'white' : 'inherit',
+                  },
                   '&.Mui-focused fieldset': {
                     borderColor: '#6B1C23',
                     borderWidth: '2px',
                   },
+                },
+                '& .MuiInputLabel-root': {
+                  color: darkMode ? '#aaa' : 'inherit',
                 },
                 '& .MuiInputLabel-root.Mui-focused': {
                   color: '#6B1C23',
@@ -1563,10 +1622,17 @@ export default function AdminDashboard() {
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2,
+                  bgcolor: darkMode ? '#1e1e1e' : 'white',
+                  '& input': {
+                    color: darkMode ? 'white' : 'inherit',
+                  },
                   '&.Mui-focused fieldset': {
                     borderColor: '#6B1C23',
                     borderWidth: '2px',
                   },
+                },
+                '& .MuiInputLabel-root': {
+                  color: darkMode ? '#aaa' : 'inherit',
                 },
                 '& .MuiInputLabel-root.Mui-focused': {
                   color: '#6B1C23',
@@ -1575,15 +1641,16 @@ export default function AdminDashboard() {
             />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 2, bgcolor: '#fafafa' }}>
+        <DialogActions sx={{ p: 3, pt: 2, bgcolor: darkMode ? '#1e1e1e' : '#fafafa' }}>
           <Button 
             onClick={() => navigate('/')}
             sx={{ 
               textTransform: 'none',
               borderRadius: 2,
               px: 3,
+              color: darkMode ? '#aaa' : 'inherit',
               '&:hover': {
-                bgcolor: 'rgba(0,0,0,0.04)',
+                bgcolor: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
               }
             }}
           >

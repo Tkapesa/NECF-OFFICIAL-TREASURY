@@ -48,7 +48,7 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../api';
 
-export default function ReceiptTable({ receipts, onUpdate }) {
+export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [editingId, setEditingId] = useState(null);
@@ -372,7 +372,7 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                     ) : (
                       <Box sx={{ mt: 0.5 }}>
                         <Typography variant="body2" fontWeight={500}>
-                          {receipt.user_name || '--'}
+                          {receipt.user_name || '--'} 
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {receipt.user_phone || '--'}
@@ -671,29 +671,30 @@ export default function ReceiptTable({ receipts, onUpdate }) {
       )}
 
       <TableContainer sx={{
+        bgcolor: darkMode ? '#2a2a2a' : 'white',
         '&::-webkit-scrollbar': {
           height: '8px',
           width: '8px',
         },
         '&::-webkit-scrollbar-track': {
-          bgcolor: '#f5f5f5',
+          bgcolor: darkMode ? '#1e1e1e' : '#f5f5f5',
         },
         '&::-webkit-scrollbar-thumb': {
-          bgcolor: '#bdbdbd',
+          bgcolor: darkMode ? '#555' : '#bdbdbd',
           borderRadius: '4px',
           '&:hover': {
-            bgcolor: '#9e9e9e',
+            bgcolor: darkMode ? '#777' : '#9e9e9e',
           },
         },
       }}>
         <Table sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow sx={{ 
-              bgcolor: '#fafafa',
-              borderBottom: '2px solid #e0e0e0',
+              bgcolor: darkMode ? '#1e1e1e' : '#fafafa',
+              borderBottom: darkMode ? '2px solid #333' : '2px solid #e0e0e0',
             }}>
-              <TableCell padding="checkbox" sx={{ bgcolor: '#fafafa' }} />
-              <TableCell padding="checkbox" sx={{ bgcolor: '#fafafa' }}>
+              <TableCell padding="checkbox" sx={{ bgcolor: darkMode ? '#1e1e1e' : '#fafafa' }} />
+              <TableCell padding="checkbox" sx={{ bgcolor: darkMode ? '#1e1e1e' : '#fafafa' }}>
                 <Checkbox
                   indeterminate={selectedReceipts.length > 0 && selectedReceipts.length < receipts.length}
                   checked={receipts.length > 0 && selectedReceipts.length === receipts.length}
@@ -707,61 +708,61 @@ export default function ReceiptTable({ receipts, onUpdate }) {
               </TableCell>
               <TableCell sx={{ 
                 fontWeight: 700, 
-                color: '#424242', 
+                color: darkMode ? '#bbb' : '#424242', 
                 fontSize: '0.875rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                bgcolor: '#fafafa',
+                bgcolor: darkMode ? '#1e1e1e' : '#fafafa',
               }}>
                 Name / Receipt
               </TableCell>
               <TableCell sx={{ 
                 fontWeight: 700, 
-                color: '#424242', 
+                color: darkMode ? '#bbb' : '#424242', 
                 fontSize: '0.875rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                bgcolor: '#fafafa',
+                bgcolor: darkMode ? '#1e1e1e' : '#fafafa',
               }}>
                 Submitted By
               </TableCell>
               <TableCell sx={{ 
                 fontWeight: 700, 
-                color: '#424242', 
+                color: darkMode ? '#bbb' : '#424242', 
                 fontSize: '0.875rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                bgcolor: '#fafafa',
+                bgcolor: darkMode ? '#1e1e1e' : '#fafafa',
               }}>
                 Date
               </TableCell>
               <TableCell sx={{ 
                 fontWeight: 700, 
-                color: '#424242', 
+                color: darkMode ? '#bbb' : '#424242', 
                 fontSize: '0.875rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                bgcolor: '#fafafa',
+                bgcolor: darkMode ? '#1e1e1e' : '#fafafa',
               }}>
                 Amount
               </TableCell>
               <TableCell sx={{ 
                 fontWeight: 700, 
-                color: '#424242', 
+                color: darkMode ? '#bbb' : '#424242', 
                 fontSize: '0.875rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                bgcolor: '#fafafa',
+                bgcolor: darkMode ? '#1e1e1e' : '#fafafa',
               }}>
                 Status
               </TableCell>
               <TableCell align="right" sx={{ 
                 fontWeight: 700, 
-                color: '#424242', 
+                color: darkMode ? '#bbb' : '#424242', 
                 fontSize: '0.875rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                bgcolor: '#fafafa',
+                bgcolor: darkMode ? '#1e1e1e' : '#fafafa',
               }}>
                 Actions
               </TableCell>
@@ -775,21 +776,22 @@ export default function ReceiptTable({ receipts, onUpdate }) {
 
               return (
                 <Fragment key={`receipt-${receipt.id}`}>
-                  <TableRow 
+                  <TableRow
                     hover
                     selected={isSelected}
                     sx={{
+                      bgcolor: darkMode ? '#2a2a2a' : 'white',
                       '&:hover': { 
-                        bgcolor: 'rgba(107, 28, 35, 0.04)',
+                        bgcolor: darkMode ? 'rgba(107, 28, 35, 0.15)' : 'rgba(107, 28, 35, 0.04)',
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
                       },
-                      borderBottom: isExpanded ? 'none' : '1px solid #f0f0f0',
+                      borderBottom: isExpanded ? 'none' : (darkMode ? '1px solid #333' : '1px solid #f0f0f0'),
                       transition: 'all 0.2s ease',
                       cursor: 'pointer',
                       '&.Mui-selected': {
-                        bgcolor: 'rgba(107, 28, 35, 0.08)',
+                        bgcolor: darkMode ? 'rgba(107, 28, 35, 0.25)' : 'rgba(107, 28, 35, 0.08)',
                         '&:hover': {
-                          bgcolor: 'rgba(107, 28, 35, 0.12)',
+                          bgcolor: darkMode ? 'rgba(107, 28, 35, 0.35)' : 'rgba(107, 28, 35, 0.12)',
                         },
                       },
                     }}
@@ -799,6 +801,12 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                       <IconButton
                         size="small"
                         onClick={() => toggleRowExpansion(receipt.id)}
+                        sx={{
+                          color: darkMode ? '#bbb' : 'inherit',
+                          '&:hover': {
+                            bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+                          },
+                        }}
                       >
                         {isExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                       </IconButton>
@@ -847,7 +855,7 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                         >
                           <ReceiptLongIcon />
                         </Avatar>
-                        <Typography variant="body2" fontWeight={500}>
+                        <Typography variant="body2" fontWeight={500} sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                           {receipt.item_bought || 'Receipt'}
                         </Typography>
                       </Box>
@@ -876,10 +884,10 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                       </Box>
                     ) : (
                       <Box>
-                        <Typography variant="body2" fontWeight={500}>
+                        <Typography variant="body2" fontWeight={500} sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                           {receipt.user_name || '--'}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" sx={{ color: darkMode ? '#888' : 'inherit' }}>
                           {receipt.user_phone || '--'}
                         </Typography>
                       </Box>
@@ -897,11 +905,11 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                       />
                     ) : (
                       <Box>
-                        <Typography variant="body2">
+                        <Typography variant="body2" sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                           {receipt.ocr_date || formatDate(receipt.created_at)}
                         </Typography>
                         {receipt.ocr_time && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ color: darkMode ? '#888' : 'inherit' }}>
                             {receipt.ocr_time}
                           </Typography>
                         )}
@@ -921,7 +929,7 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                         sx={{ width: 100 }}
                       />
                     ) : (
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                         ₺{receipt.ocr_price || '0.00'}
                       </Typography>
                     )}
@@ -1042,43 +1050,43 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                 <TableRow key={`${receipt.id}-expanded`}>
                   <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
                     <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                      <Box sx={{ py: 3, px: 2, bgcolor: '#f8f9fa' }}>
+                      <Box sx={{ py: 3, px: 2, bgcolor: darkMode ? '#1e1e1e' : '#f8f9fa' }}>
                         <Grid container spacing={3}>
                           <Grid item xs={12} md={6}>
                             <Paper 
                               elevation={0} 
                               sx={{ 
                                 p: 2, 
-                                bgcolor: 'white',
-                                border: '1px solid #e0e0e0',
+                                bgcolor: darkMode ? '#2a2a2a' : 'white',
+                                border: darkMode ? '1px solid #333' : '1px solid #e0e0e0',
                                 borderRadius: 2,
                               }}
                             >
-                              <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold">
+                              <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold" sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                 Receipt Details
                               </Typography>
                               <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ color: darkMode ? '#888' : 'inherit' }}>
                                     Item Purchased
                                   </Typography>
-                                  <Typography variant="body2" fontWeight={500}>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                     {receipt.item_bought || 'N/A'}
                                   </Typography>
                                 </Box>
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ color: darkMode ? '#888' : 'inherit' }}>
                                     Amount
                                   </Typography>
-                                  <Typography variant="body2" fontWeight={500}>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                     ₺{receipt.ocr_price || '0.00'}
                                   </Typography>
                                 </Box>
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ color: darkMode ? '#888' : 'inherit' }}>
                                     Date & Time
                                   </Typography>
-                                  <Typography variant="body2" fontWeight={500}>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                     {receipt.ocr_date || formatDate(receipt.created_at)} {receipt.ocr_time && `at ${receipt.ocr_time}`}
                                   </Typography>
                                 </Box>
@@ -1090,33 +1098,33 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                               elevation={0} 
                               sx={{ 
                                 p: 2, 
-                                bgcolor: 'white',
-                                border: '1px solid #e0e0e0',
+                                bgcolor: darkMode ? '#2a2a2a' : 'white',
+                                border: darkMode ? '1px solid #333' : '1px solid #e0e0e0',
                                 borderRadius: 2,
                               }}
                             >
-                              <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold">
+                              <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold" sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                 Submission Info
                               </Typography>
                               <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ color: darkMode ? '#888' : 'inherit' }}>
                                     Submitted By
                                   </Typography>
-                                  <Typography variant="body2" fontWeight={500}>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                     {receipt.user_name || 'N/A'}
                                   </Typography>
                                 </Box>
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ color: darkMode ? '#888' : 'inherit' }}>
                                     Contact
                                   </Typography>
-                                  <Typography variant="body2" fontWeight={500}>
+                                  <Typography variant="body2" fontWeight={500} sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                     {receipt.user_phone || 'N/A'}
                                   </Typography>
                                 </Box>
                                 <Box>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography variant="caption" color="text.secondary" sx={{ color: darkMode ? '#888' : 'inherit' }}>
                                     Approved By
                                   </Typography>
                                   <Chip
@@ -1138,21 +1146,21 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                               elevation={0} 
                               sx={{ 
                                 p: 2, 
-                                bgcolor: 'white',
-                                border: '1px solid #e0e0e0',
+                                bgcolor: darkMode ? '#2a2a2a' : 'white',
+                                border: darkMode ? '1px solid #333' : '1px solid #e0e0e0',
                                 borderRadius: 2,
                               }}
                             >
-                              <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold">
+                              <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold" sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                 📝 OCR Extracted Text
                               </Typography>
                               <Box 
                                 sx={{ 
                                   mt: 2, 
                                   p: 2,
-                                  bgcolor: '#f8f9fa',
+                                  bgcolor: darkMode ? '#1e1e1e' : '#f8f9fa',
                                   borderRadius: 1,
-                                  border: '1px dashed #d0d0d0',
+                                  border: darkMode ? '1px dashed #444' : '1px dashed #d0d0d0',
                                   maxHeight: '200px',
                                   overflowY: 'auto',
                                 }}
@@ -1163,7 +1171,7 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                                     fontFamily: 'monospace',
                                     whiteSpace: 'pre-wrap',
                                     wordBreak: 'break-word',
-                                    color: 'text.secondary',
+                                    color: darkMode ? '#aaa' : 'text.secondary',
                                     fontSize: '0.875rem',
                                     lineHeight: 1.6,
                                   }}
@@ -1182,12 +1190,12 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                               elevation={0} 
                               sx={{ 
                                 p: 2, 
-                                bgcolor: 'white',
-                                border: '1px solid #e0e0e0',
+                                bgcolor: darkMode ? '#2a2a2a' : 'white',
+                                border: darkMode ? '1px solid #333' : '1px solid #e0e0e0',
                                 borderRadius: 2,
                               }}
                             >
-                              <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold">
+                              <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold" sx={{ color: darkMode ? '#ddd' : 'inherit' }}>
                                 📷 Receipt Image
                               </Typography>
                               <Box 
@@ -1205,7 +1213,7 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                                     maxWidth: '200px', 
                                     maxHeight: '200px', 
                                     borderRadius: '8px',
-                                    border: '1px solid #e0e0e0',
+                                    border: darkMode ? '1px solid #555' : '1px solid #e0e0e0',
                                     cursor: 'pointer',
                                   }}
                                   onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
@@ -1215,6 +1223,14 @@ export default function ReceiptTable({ receipts, onUpdate }) {
                                   size="small"
                                   startIcon={<ZoomInIcon />}
                                   onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                                  sx={{
+                                    color: darkMode ? '#fff' : '#d32f2f',
+                                    borderColor: darkMode ? '#fff' : '#d32f2f',
+                                    '&:hover': {
+                                      borderColor: darkMode ? '#ddd' : '#c62828',
+                                      bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(211, 47, 47, 0.04)',
+                                    },
+                                  }}
                                 >
                                   View Full Size
                                 </Button>

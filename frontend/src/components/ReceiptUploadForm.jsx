@@ -1,7 +1,7 @@
 /**
  * Receipt Upload Form Component (User Side)
  */
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Box,
   TextField,
@@ -18,6 +18,11 @@ import {
   InputAdornment,
   Fade,
   Zoom,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PersonIcon from '@mui/icons-material/Person';
@@ -26,6 +31,9 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ImageIcon from '@mui/icons-material/Image';
 import SendIcon from '@mui/icons-material/Send';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import CloseIcon from '@mui/icons-material/Close';
+import FlipCameraAndroidIcon from '@mui/icons-material/FlipCameraAndroid';
 import axios from 'axios';
 
 export default function ReceiptUploadForm() {
@@ -40,6 +48,13 @@ export default function ReceiptUploadForm() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [errors, setErrors] = useState({});
+  
+  // Camera states
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [stream, setStream] = useState(null);
+  const [facingMode, setFacingMode] = useState('environment'); // 'user' for front, 'environment' for back
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const validateForm = () => {
     const newErrors = {};
@@ -73,6 +88,63 @@ export default function ReceiptUploadForm() {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Camera functions
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+      setCameraOpen(true);
+      setMessage({ type: '', text: '' });
+    } catch (error) {
+      console.error('Camera access error:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Unable to access camera. Please check permissions.' 
+      });
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setCameraOpen(false);
+  };
+
+  const switchCamera = async () => {
+    stopCamera();
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+    setTimeout(() => startCamera(), 100);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob((blob) => {
+        const file = new File([blob], `receipt_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setImage(file);
+        setImagePreview(canvas.toDataURL('image/jpeg'));
+        stopCamera();
+      }, 'image/jpeg', 0.9);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -327,39 +399,82 @@ export default function ReceiptUploadForm() {
               },
             }}
           >
-            <Button
-              variant={image ? "outlined" : "contained"}
-              component="label"
-              fullWidth
-              size="large"
-              startIcon={<CloudUploadIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />}
+            <Typography 
+              variant="subtitle2" 
+              color="text.secondary" 
               sx={{ 
-                py: { xs: 1.5, sm: 1.8, md: 2 },
-                mb: imagePreview ? { xs: 1.5, sm: 2 } : 0,
-                background: image ? 'transparent' : 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
-                borderColor: '#6B1C23',
-                color: image ? '#6B1C23' : 'white',
-                fontWeight: 'bold',
-                fontSize: { xs: '0.9rem', sm: '0.95rem', md: '1rem' },
-                textTransform: 'none',
-                '&:hover': {
-                  background: image ? 'rgba(107, 28, 35, 0.08)' : 'linear-gradient(135deg, #4A0E13 0%, #6B1C23 100%)',
-                  borderColor: '#4A0E13',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px rgba(107, 28, 35, 0.3)',
-                },
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                mb: 2, 
+                textAlign: 'center',
+                fontSize: { xs: '0.85rem', sm: '0.875rem' }
               }}
             >
-              {image ? 'Change Receipt Image' : 'Choose Receipt Image'}
-              <input
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={handleImageChange}
-                required
-              />
-            </Button>
+              {image ? 'Receipt image selected' : 'Choose how to add your receipt'}
+            </Typography>
+
+            {/* Camera and Upload Buttons */}
+            <Stack 
+              direction={{ xs: 'column', sm: 'row' }} 
+              spacing={2} 
+              sx={{ mb: imagePreview ? { xs: 1.5, sm: 2 } : 0 }}
+            >
+              <Button
+                variant={image ? "outlined" : "contained"}
+                component="label"
+                fullWidth
+                size="large"
+                startIcon={<CloudUploadIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />}
+                sx={{ 
+                  py: { xs: 1.5, sm: 1.8, md: 2 },
+                  background: image ? 'transparent' : 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
+                  borderColor: '#6B1C23',
+                  color: image ? '#6B1C23' : 'white',
+                  fontWeight: 'bold',
+                  fontSize: { xs: '0.9rem', sm: '0.95rem', md: '1rem' },
+                  textTransform: 'none',
+                  '&:hover': {
+                    background: image ? 'rgba(107, 28, 35, 0.08)' : 'linear-gradient(135deg, #4A0E13 0%, #6B1C23 100%)',
+                    borderColor: '#4A0E13',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 20px rgba(107, 28, 35, 0.3)',
+                  },
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                {image ? 'Change Image' : 'Upload from Gallery'}
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+              </Button>
+
+              <Button
+                variant={image ? "outlined" : "contained"}
+                fullWidth
+                size="large"
+                startIcon={<CameraAltIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />}
+                onClick={startCamera}
+                sx={{ 
+                  py: { xs: 1.5, sm: 1.8, md: 2 },
+                  background: image ? 'transparent' : 'linear-gradient(135deg, #4A0E13 0%, #6B1C23 100%)',
+                  borderColor: '#6B1C23',
+                  color: image ? '#6B1C23' : 'white',
+                  fontWeight: 'bold',
+                  fontSize: { xs: '0.9rem', sm: '0.95rem', md: '1rem' },
+                  textTransform: 'none',
+                  '&:hover': {
+                    background: image ? 'rgba(107, 28, 35, 0.08)' : 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
+                    borderColor: '#4A0E13',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 20px rgba(107, 28, 35, 0.3)',
+                  },
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                Take Photo
+              </Button>
+            </Stack>
 
             {imagePreview && (
               <Fade in={!!imagePreview}>
@@ -647,6 +762,186 @@ export default function ReceiptUploadForm() {
           </Typography>
         </Box>
       </CardContent>
+
+      {/* Camera Dialog */}
+      <Dialog
+        open={cameraOpen}
+        onClose={stopCamera}
+        maxWidth="md"
+        fullWidth
+        fullScreen={window.innerWidth < 600}
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 0, sm: 3 },
+            overflow: 'hidden',
+            bgcolor: '#000',
+          }
+        }}
+      >
+        <DialogTitle 
+          sx={{ 
+            bgcolor: '#1a1a1a',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            py: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <CameraAltIcon />
+            <Typography variant="h6" fontWeight="bold">
+              Take Photo
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={stopCamera}
+            sx={{ 
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent 
+          sx={{ 
+            p: 0, 
+            bgcolor: '#000',
+            position: 'relative',
+            aspectRatio: { xs: '3/4', sm: '4/3' },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+          
+          {/* Camera overlay guides */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              border: '3px solid rgba(255,255,255,0.3)',
+              borderRadius: 2,
+              margin: { xs: 2, sm: 4 },
+              pointerEvents: 'none',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: -3,
+                left: -3,
+                right: -3,
+                bottom: -3,
+                border: '40px solid rgba(0,0,0,0.3)',
+                borderRadius: 2,
+              }
+            }}
+          />
+
+          {/* Helper text */}
+          <Typography
+            sx={{
+              position: 'absolute',
+              top: { xs: 16, sm: 24 },
+              left: '50%',
+              transform: 'translateX(-50%)',
+              bgcolor: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              fontWeight: 'bold',
+              textAlign: 'center',
+            }}
+          >
+            Position receipt within frame
+          </Typography>
+
+          {/* Hidden canvas for capturing */}
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+        </DialogContent>
+
+        <DialogActions 
+          sx={{ 
+            bgcolor: '#1a1a1a',
+            p: { xs: 2, sm: 3 },
+            justifyContent: 'center',
+            gap: 2,
+          }}
+        >
+          <Button
+            variant="outlined"
+            startIcon={<FlipCameraAndroidIcon />}
+            onClick={switchCamera}
+            sx={{
+              color: 'white',
+              borderColor: 'rgba(255,255,255,0.3)',
+              textTransform: 'none',
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              '&:hover': {
+                borderColor: 'white',
+                bgcolor: 'rgba(255,255,255,0.1)',
+              }
+            }}
+          >
+            Switch Camera
+          </Button>
+          
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<CameraAltIcon />}
+            onClick={capturePhoto}
+            sx={{
+              background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
+              px: 4,
+              py: 1.5,
+              fontSize: { xs: '1rem', sm: '1.1rem' },
+              fontWeight: 'bold',
+              textTransform: 'none',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4A0E13 0%, #6B1C23 100%)',
+                transform: 'scale(1.05)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Capture
+          </Button>
+
+          <Button
+            variant="outlined"
+            onClick={stopCamera}
+            sx={{
+              color: 'white',
+              borderColor: 'rgba(255,255,255,0.3)',
+              textTransform: 'none',
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              '&:hover': {
+                borderColor: 'white',
+                bgcolor: 'rgba(255,255,255,0.1)',
+              }
+            }}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }

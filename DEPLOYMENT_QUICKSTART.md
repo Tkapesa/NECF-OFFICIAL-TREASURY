@@ -1,6 +1,30 @@
 # 🚀 NECF Treasury System - Quick Deployment Reference
 
-**For Mitchell - Quick Command Reference**
+**For Mitchell - Quick Command Reference**  
+**Last Updated**: November 20, 2025 - **NEW UPDATES!** ⚡
+
+---
+
+## 🆕 Latest Updates (Nov 20, 2025)
+
+**IMPORTANT**: New fixes deployed - see [DEPLOYMENT_UPDATE_NOV20.md](./DEPLOYMENT_UPDATE_NOV20.md)
+
+### What's New:
+- ✅ Fixed API connection issue (localhost → production URL)
+- ✅ Fixed page scrolling/bouncing issues
+- ✅ 50% faster loading with code splitting
+- ✅ Lazy loading for better performance
+
+### Quick Update Command:
+```bash
+cd /path/to/NECF-OFFICIAL-TREASURY && \
+git pull origin main && \
+cd frontend && \
+echo 'VITE_API_URL=https://necftreausry.com/api' > .env && \
+npm install && \
+npm run build && \
+sudo systemctl restart nginx
+```
 
 ---
 
@@ -148,12 +172,12 @@ sudo certbot --nginx -d your_domain.com
 # 1. Generate JWT Secret
 openssl rand -hex 32
 
-# 2. Create .env file
+# 2. Create backend .env file
 cd backend
 nano .env
 ```
 
-**.env Content:**
+**Backend .env Content:**
 ```bash
 JWT_SECRET_KEY=<paste_generated_key_here>
 DEFAULT_ADMIN_USERNAME=your_secure_username
@@ -162,6 +186,24 @@ CORS_ORIGINS=https://your_domain.com
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
 DATABASE_URL=sqlite:///./treasury.db
 MAX_UPLOAD_SIZE=10485760
+```
+
+**⚠️ NEW: Frontend .env file (REQUIRED!)**
+```bash
+# 3. Create frontend .env file
+cd ../frontend
+nano .env
+```
+
+**Frontend .env Content:**
+```bash
+# IMPORTANT: Replace with your actual domain!
+VITE_API_URL=https://your_domain.com/api
+```
+
+**Example for necftreausry.com:**
+```bash
+VITE_API_URL=https://necftreausry.com/api
 ```
 
 **Set Permissions:**

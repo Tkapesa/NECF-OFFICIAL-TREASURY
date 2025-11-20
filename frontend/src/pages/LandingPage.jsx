@@ -33,14 +33,20 @@ export default function LandingPage() {
     <Box
       sx={{
         minHeight: '100vh',
-        width: '100%',
+        height: '100vh',
+        width: '100vw',
         margin: 0,
         padding: 0,
         display: 'flex',
         flexDirection: 'column',
         background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 50%, #000000 100%)',
-        position: 'relative',
-        overflow: 'auto',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: 'hidden',
+        overflowY: 'auto',
       }}
     >
       {/* Animated background patterns */}

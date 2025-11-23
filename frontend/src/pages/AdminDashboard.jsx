@@ -469,26 +469,37 @@ export default function AdminDashboard() {
     printWindow.document.close();
   };
 
-  const filteredReceipts = receipts.filter(receipt => {
-    // Search filter
-    const matchesSearch = receipt.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      receipt.item_bought?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      receipt.user_phone?.includes(searchQuery);
-    
-    // Status filter
-    const matchesStatus = statusFilter === 'all' ||
-      (statusFilter === 'approved' && receipt.approved_by && receipt.approved_by !== 'Pending') ||
-      (statusFilter === 'pending' && (!receipt.approved_by || receipt.approved_by === 'Pending'));
-    
+  // Ensure receipts is always an array before filtering to avoid runtime errors
+  const safeReceipts = Array.isArray(receipts) ? receipts : [];
+  const filteredReceipts = safeReceipts.filter((receipt = {}) => {
+    // Defensive extraction with defaults
+    const userName = (receipt.user_name || '').toLowerCase();
+    const itemBought = (receipt.item_bought || '').toLowerCase();
+    const phone = receipt.user_phone || '';
+    const query = searchQuery.toLowerCase();
+
+    const matchesSearch =
+      (userName && userName.includes(query)) ||
+      (itemBought && itemBought.includes(query)) ||
+      (phone && phone.includes(searchQuery));
+
+    // Status filter logic with defensive checks
+    const approved = !!(receipt.approved_by && receipt.approved_by !== 'Pending');
+    const pending = !receipt.approved_by || receipt.approved_by === 'Pending';
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'approved' && approved) ||
+      (statusFilter === 'pending' && pending);
+
     return matchesSearch && matchesStatus;
   });
 
   // Calculate statistics
   const stats = {
-    total: receipts.length,
-    totalAmount: receipts.reduce((sum, r) => sum + (parseFloat(r.ocr_price) || 0), 0),
-    approved: receipts.filter(r => r.approved_by && r.approved_by !== 'Pending').length,
-    pending: receipts.filter(r => !r.approved_by || r.approved_by === 'Pending').length,
+    total: safeReceipts.length,
+    totalAmount: safeReceipts.reduce((sum, r = {}) => sum + (parseFloat(r.ocr_price) || 0), 0),
+    approved: safeReceipts.filter(r => r && r.approved_by && r.approved_by !== 'Pending').length,
+    pending: safeReceipts.filter(r => !r || !r.approved_by || r.approved_by === 'Pending').length,
   };
 
   // Animated counter effect

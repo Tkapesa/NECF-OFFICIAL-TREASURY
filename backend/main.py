@@ -1,12 +1,12 @@
 """
 FastAPI backend for Church Treasury System
 """
-from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from passlib.context import CryptContext
+import bcrypt
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
 import shutil
@@ -42,8 +42,28 @@ class ReceiptUpdate(BaseModel):
 def get_config():
     return Settings()
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing using bcrypt directly (avoids passlib backend issues)
+def hash_password(password: str) -> str:
+    if isinstance(password, str):
+        password_bytes = password.encode('utf-8')
+    else:
+        password_bytes = password
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if isinstance(plain_password, str):
+        plain_bytes = plain_password.encode('utf-8')
+    else:
+        plain_bytes = plain_password
+    if isinstance(hashed_password, str):
+        hash_bytes = hashed_password.encode('utf-8')
+    else:
+        hash_bytes = hashed_password
+    try:
+        return bcrypt.checkpw(plain_bytes, hash_bytes)
+    except ValueError:
+        return False
 
 # Initialize FastAPI app
 app = FastAPI(title="Church Treasury System")
@@ -92,14 +112,7 @@ def startup_event():
 
 # ============ AUTH UTILITIES ============
 
-def verify_password(plain_password, hashed_password):
-    """Verify password against hash"""
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def hash_password(password: str) -> str:
-    """Hash a password"""
-    return pwd_context.hash(password)
+    
 
 
 def validate_strong_password(password: str) -> bool:
@@ -364,7 +377,7 @@ async def upload_receipt(
 
 
 @app.get("/api/receipts")
-def get_receipts(db: Session = Depends(get_db), Authorize: AuthJWT = Depends()):
+def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: AuthJWT = Depends()):
     """Admin endpoint to get all receipts"""
     
     # Verify admin token
@@ -384,7 +397,8 @@ def get_receipts(db: Session = Depends(get_db), Authorize: AuthJWT = Depends()):
                 "ocr_date": r.ocr_date,
                 "ocr_time": r.ocr_time,
                 "ocr_raw_text": r.ocr_raw_text,
-                "image_path": f"http://localhost:8000/{r.image_path}",
+                # Build absolute image URL dynamically (avoids hardcoded localhost)
+                "image_path": f"{str(request.base_url).rstrip('/')}/{r.image_path}",
                 "created_at": r.created_at.isoformat()
             }
             for r in receipts

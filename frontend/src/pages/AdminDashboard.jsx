@@ -65,7 +65,6 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import ReceiptTable from '../components/ReceiptTable';
 import AdminManagement from '../components/AdminManagement';
 import api from '../api';
-import axios from 'axios';
 
 const drawerWidth = 240;
 
@@ -127,7 +126,7 @@ export default function AdminDashboard() {
       formData.append('username', credentials.username);
       formData.append('password', credentials.password);
 
-      const response = await axios.post('http://localhost:8000/api/login', formData);
+  const response = await api.post('/login', formData);
       
       localStorage.setItem('token', response.data.access_token);
       localStorage.setItem('is_superuser', String(response.data.is_superuser || false));

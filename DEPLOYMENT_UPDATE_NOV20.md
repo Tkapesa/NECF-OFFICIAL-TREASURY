@@ -19,6 +19,9 @@
 **Solution**:
 - Updated `frontend/src/api.js` to use environment variable
 - Created `.env.production` file with production API URL
+- Removed ALL hardcoded `http://localhost:8000` axios calls (now use shared api instance)
+- Added intelligent fallback order: `VITE_API_URL` > localhost (dev) > `window.location.origin + /api`
+- Added development console log to confirm active base URL
 
 ### Issue 2: Page Scrolling/Bouncing ❌ → ✅
 
@@ -43,6 +46,23 @@
 - Lazy loading for routes
 - Terser minification
 - Result: 50% faster initial load
+
+### Issue 4: Residual Hardcoded API Calls ❌ → ✅
+
+**Problem**:
+- Components (`AdminDashboard.jsx`, `ReceiptUploadForm.jsx`) still called `http://localhost:8000/...` directly
+- Caused production builds to retain localhost references even if `api.js` was correct
+
+**Solution**:
+- Replaced direct `axios.post('http://localhost:8000/...')` with `api.post('/...')`
+- Centralized all base URL logic in `api.js`
+- Ensured future endpoint changes require editing only one file
+
+**Verification Check**:
+```bash
+# After build, confirm no localhost strings remain:
+grep -R "localhost:8000" -n frontend/dist || echo "✅ No localhost references in build"
+```
 
 ---
 

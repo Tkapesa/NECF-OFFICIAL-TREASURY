@@ -35,6 +35,7 @@ import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import CloseIcon from '@mui/icons-material/Close';
 import FlipCameraAndroidIcon from '@mui/icons-material/FlipCameraAndroid';
 import axios from 'axios';
+import api from '../api';
 
 export default function ReceiptUploadForm() {
   const [formData, setFormData] = useState({
@@ -216,7 +217,7 @@ export default function ReceiptUploadForm() {
       data.append('item_bought', formData.item_bought);
       data.append('approved_by', formData.approved_by);
 
-      const response = await axios.post('http://localhost:8000/api/receipts/upload', data, {
+      const response = await api.post('/receipts/upload', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

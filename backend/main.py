@@ -75,6 +75,8 @@ app.add_middleware(
         "http://localhost:5173",  # Vite default port
         "http://localhost:5174",  # Vite alternate port
         "http://localhost:5175",  # Vite alternate port
+    "https://necftreausry.com",  # Production domain (HTTPS)
+    "http://necftreausry.com",   # Production domain (HTTP fallback)
     ],
     allow_credentials=True,
     allow_methods=["*"],

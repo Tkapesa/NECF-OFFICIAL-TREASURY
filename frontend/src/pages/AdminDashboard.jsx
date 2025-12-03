@@ -103,12 +103,13 @@ export default function AdminDashboard() {
     // Check if already logged in
     const token = localStorage.getItem('token');
     const savedSuperuser = localStorage.getItem('is_superuser') === 'true';
-    const savedUsername = localStorage.getItem('username') || 'Admin';
+    const savedUsername = localStorage.getItem('username');
     const savedDarkMode = localStorage.getItem('darkMode') === 'true';
     if (token) {
       setIsAuthenticated(true);
       setIsSuperuser(savedSuperuser);
-      setLoggedInUsername(savedUsername);
+      // Only set username if it exists and is not null/undefined
+      setLoggedInUsername(savedUsername && savedUsername !== 'null' && savedUsername !== 'undefined' ? savedUsername : 'Admin');
       setDarkMode(savedDarkMode);
       setLoginOpen(false);
       fetchReceipts();
@@ -126,19 +127,24 @@ export default function AdminDashboard() {
       formData.append('username', credentials.username);
       formData.append('password', credentials.password);
 
-  const response = await api.post('/login', formData);
+      const response = await api.post('/login', formData);
+      
+      const username = response.data.username || credentials.username || 'Admin';
+      const isSuperuser = response.data.is_superuser || false;
       
       localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('is_superuser', String(response.data.is_superuser || false));
-      localStorage.setItem('username', response.data.username);
+      localStorage.setItem('is_superuser', String(isSuperuser));
+      localStorage.setItem('username', username);
       
       console.log('Login response:', {
-        is_superuser: response.data.is_superuser,
-        stored: localStorage.getItem('is_superuser')
+        username: username,
+        is_superuser: isSuperuser,
+        stored_username: localStorage.getItem('username'),
+        stored_superuser: localStorage.getItem('is_superuser')
       });
       
-      setIsSuperuser(response.data.is_superuser || false);
-      setLoggedInUsername(response.data.username || 'Admin');
+      setIsSuperuser(isSuperuser);
+      setLoggedInUsername(username);
       setIsAuthenticated(true);
       setLoginOpen(false);
       fetchReceipts();
@@ -150,12 +156,32 @@ export default function AdminDashboard() {
   const fetchReceipts = async () => {
     setLoading(true);
     try {
+      console.log('Fetching receipts from API...');
       const response = await api.get('/receipts');
-      setReceipts(response.data.receipts);
-      setSnackbar({ open: true, message: 'Receipts refreshed successfully', severity: 'success' });
+      console.log('Receipts response:', response.data);
+      
+      if (response.data && response.data.receipts) {
+        setReceipts(response.data.receipts);
+        console.log(`✅ Successfully loaded ${response.data.receipts.length} receipts`);
+        setSnackbar({ open: true, message: `Loaded ${response.data.receipts.length} receipts successfully`, severity: 'success' });
+      } else {
+        console.warn('⚠️ No receipts data in response');
+        setReceipts([]);
+        setSnackbar({ open: true, message: 'No receipts found', severity: 'info' });
+      }
     } catch (error) {
-      console.error('Failed to fetch receipts:', error);
-      setSnackbar({ open: true, message: 'Failed to load receipts', severity: 'error' });
+      console.error('❌ Failed to fetch receipts:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      setReceipts([]);
+      setSnackbar({ 
+        open: true, 
+        message: error.response?.data?.detail || 'Failed to load receipts. Please check your connection.', 
+        severity: 'error' 
+      });
     } finally {
       setLoading(false);
     }
@@ -861,14 +887,22 @@ export default function AdminDashboard() {
             sx={{ 
               bgcolor: darkMode ? '#1e1e1e' : 'white', 
               borderBottom: darkMode ? '1px solid #333' : '1px solid #e0e0e0', 
-              p: { xs: 1.5, sm: 2 },
+              p: { xs: 2, sm: 2.5 },
               position: 'sticky',
               top: 0,
               zIndex: 10,
               flexShrink: 0,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: { xs: 1.5, sm: 2 }, flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              mb: { xs: 2, sm: 2.5 }, 
+              flexWrap: 'wrap', 
+              gap: { xs: 1.5, sm: 2 },
+              rowGap: { xs: 1.5, sm: 2 }
+            }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <IconButton
                   color="inherit"
@@ -883,21 +917,27 @@ export default function AdminDashboard() {
                   Receipts
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Button
                   variant="outlined"
                   startIcon={<RefreshIcon />}
                   onClick={fetchReceipts}
                   sx={{ 
                     textTransform: 'none',
-                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                    px: { xs: 1.5, sm: 2 },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 1.5, sm: 2.5 },
+                    py: { xs: 0.75, sm: 1 },
+                    minWidth: { xs: 'auto', sm: '100px' },
+                    whiteSpace: 'nowrap',
                     color: darkMode ? 'white' : 'inherit',
                     borderColor: darkMode ? '#555' : 'rgba(0, 0, 0, 0.23)',
                     '&:hover': {
                       borderColor: darkMode ? '#777' : 'rgba(0, 0, 0, 0.23)',
                       bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
                     },
+                    '& .MuiButton-startIcon': {
+                      marginRight: { xs: '4px', sm: '8px' }
+                    }
                   }}
                 >
                   Refresh
@@ -908,13 +948,19 @@ export default function AdminDashboard() {
                   onClick={exportToCSV}
                   sx={{ 
                     textTransform: 'none',
-                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                    px: { xs: 1.5, sm: 2 },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 1.5, sm: 2.5 },
+                    py: { xs: 0.75, sm: 1 },
+                    minWidth: { xs: 'auto', sm: '90px' },
+                    whiteSpace: 'nowrap',
                     color: '#2e7d32',
                     borderColor: '#2e7d32',
                     '&:hover': {
                       borderColor: '#1b5e20',
                       bgcolor: 'rgba(46, 125, 50, 0.04)',
+                    },
+                    '& .MuiButton-startIcon': {
+                      marginRight: { xs: '4px', sm: '8px' }
                     }
                   }}
                 >
@@ -926,13 +972,19 @@ export default function AdminDashboard() {
                   onClick={exportToPDF}
                   sx={{ 
                     textTransform: 'none',
-                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                    px: { xs: 1.5, sm: 2 },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 1.5, sm: 2.5 },
+                    py: { xs: 0.75, sm: 1 },
+                    minWidth: { xs: 'auto', sm: '90px' },
+                    whiteSpace: 'nowrap',
                     color: '#d32f2f',
                     borderColor: '#d32f2f',
                     '&:hover': {
                       borderColor: '#c62828',
                       bgcolor: 'rgba(211, 47, 47, 0.04)',
+                    },
+                    '& .MuiButton-startIcon': {
+                      marginRight: { xs: '4px', sm: '8px' }
                     }
                   }}
                 >
@@ -945,10 +997,16 @@ export default function AdminDashboard() {
                   sx={{ 
                     textTransform: 'none',
                     background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
-                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                    px: { xs: 1.5, sm: 2 },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 1.5, sm: 2.5 },
+                    py: { xs: 0.75, sm: 1 },
+                    minWidth: { xs: 'auto', sm: '130px' },
+                    whiteSpace: 'nowrap',
                     '&:hover': {
                       background: 'linear-gradient(135deg, #4A0E13 0%, #6B1C23 100%)',
+                    },
+                    '& .MuiButton-startIcon': {
+                      marginRight: { xs: '4px', sm: '8px' }
                     }
                   }}
                 >
@@ -958,14 +1016,21 @@ export default function AdminDashboard() {
             </Box>
 
             {/* Search Bar and Filter */}
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Box sx={{ 
+              display: 'flex', 
+              gap: { xs: 1.5, sm: 2 }, 
+              flexWrap: 'wrap', 
+              alignItems: 'center',
+              mt: { xs: 0.5, sm: 0 }
+            }}>
               <Paper
                 sx={{
-                  p: '2px 4px',
+                  p: '4px 8px',
                   display: 'flex',
                   alignItems: 'center',
                   flex: { xs: '1 1 100%', sm: '1 1 auto' },
                   minWidth: { xs: 'auto', sm: 300 },
+                  maxWidth: { xs: '100%', sm: 400 },
                   boxShadow: 'none',
                   border: darkMode ? '1px solid #333' : '1px solid #e0e0e0',
                   bgcolor: darkMode ? '#2a2a2a' : 'white',
@@ -990,11 +1055,27 @@ export default function AdminDashboard() {
               <FormControl 
                 size="small" 
                 sx={{ 
-                  minWidth: { xs: '100%', sm: 150 },
+                  minWidth: { xs: '100%', sm: 180 },
                   '& .MuiOutlinedInput-root': {
+                    bgcolor: darkMode ? '#2a2a2a' : 'white',
+                    '& fieldset': {
+                      borderColor: darkMode ? '#333' : '#e0e0e0',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: darkMode ? '#555' : '#6B1C23',
+                    },
                     '&.Mui-focused fieldset': {
                       borderColor: '#6B1C23',
                     },
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: darkMode ? '#999' : 'rgba(0, 0, 0, 0.6)',
+                    '&.Mui-focused': {
+                      color: '#6B1C23',
+                    },
+                  },
+                  '& .MuiSelect-select': {
+                    color: darkMode ? 'white' : 'inherit',
                   },
                 }}
               >
@@ -1009,6 +1090,16 @@ export default function AdminDashboard() {
                       <FilterListIcon sx={{ color: '#6B1C23', fontSize: 20 }} />
                     </InputAdornment>
                   }
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        bgcolor: darkMode ? '#2a2a2a' : 'white',
+                        '& .MuiMenuItem-root': {
+                          color: darkMode ? 'white' : 'inherit',
+                        },
+                      },
+                    },
+                  }}
                 >
                   <MenuItem value="all">All Receipts</MenuItem>
                   <MenuItem value="approved">Approved Only</MenuItem>

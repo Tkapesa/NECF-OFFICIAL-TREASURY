@@ -75,8 +75,10 @@ app.add_middleware(
         "http://localhost:5173",  # Vite default port
         "http://localhost:5174",  # Vite alternate port
         "http://localhost:5175",  # Vite alternate port
-    "https://necftreausry.com",  # Production domain (HTTPS)
-    "http://necftreausry.com",   # Production domain (HTTP fallback)
+        "https://necftreausry.com",  # Production domain (HTTPS)
+        "http://necftreausry.com",   # Production domain (HTTP fallback)
+        "https://www.necftreausry.com",  # Production with www
+        "http://www.necftreausry.com",   # Production with www (HTTP fallback)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -210,28 +212,39 @@ def login(username: str = Form(...), password: str = Form(...),
 def get_admins(db: Session = Depends(get_db), Authorize: AuthJWT = Depends()):
     """Superuser endpoint to get all admins"""
     
-    # Verify token
-    Authorize.jwt_required()
-    current_username = Authorize.get_jwt_subject()
-    claims = Authorize.get_raw_jwt()
-    
-    # Check if superuser
-    if not claims.get("is_superuser", False):
-        raise HTTPException(status_code=403, detail="Superuser access required")
-    
-    admins = db.query(Admin).order_by(Admin.created_at.desc()).all()
-    
-    return {
-        "admins": [
-            {
-                "id": a.id,
-                "username": a.username,
-                "is_superuser": a.is_superuser,
-                "created_at": a.created_at.isoformat()
-            }
-            for a in admins
-        ]
-    }
+    try:
+        # Verify token
+        Authorize.jwt_required()
+        current_username = Authorize.get_jwt_subject()
+        claims = Authorize.get_raw_jwt()
+        
+        print(f"👤 User '{current_username}' requesting admin list (Superuser: {claims.get('is_superuser', False)})")
+        
+        # Check if superuser
+        if not claims.get("is_superuser", False):
+            print(f"❌ Access denied: User '{current_username}' is not a superuser")
+            raise HTTPException(status_code=403, detail="Superuser access required")
+        
+        admins = db.query(Admin).order_by(Admin.created_at.desc()).all()
+        
+        print(f"✅ Returning {len(admins)} admin accounts")
+        
+        return {
+            "admins": [
+                {
+                    "id": a.id,
+                    "username": a.username,
+                    "is_superuser": a.is_superuser,
+                    "created_at": a.created_at.isoformat()
+                }
+                for a in admins
+            ]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching admins: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch admins: {str(e)}")
 
 
 @app.post("/api/admins")
@@ -382,30 +395,36 @@ async def upload_receipt(
 def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: AuthJWT = Depends()):
     """Admin endpoint to get all receipts"""
     
-    # Verify admin token
-    Authorize.jwt_required()
-    
-    receipts = db.query(Receipt).order_by(Receipt.created_at.desc()).all()
-    
-    return {
-        "receipts": [
-            {
-                "id": r.id,
-                "user_name": r.user_name,
-                "user_phone": r.user_phone,
-                "item_bought": r.item_bought,
-                "approved_by": r.approved_by,
-                "ocr_price": r.ocr_price,
-                "ocr_date": r.ocr_date,
-                "ocr_time": r.ocr_time,
-                "ocr_raw_text": r.ocr_raw_text,
-                # Build absolute image URL dynamically (avoids hardcoded localhost)
-                "image_path": f"{str(request.base_url).rstrip('/')}/{r.image_path}",
-                "created_at": r.created_at.isoformat()
-            }
-            for r in receipts
-        ]
-    }
+    try:
+        # Verify admin token
+        Authorize.jwt_required()
+        
+        receipts = db.query(Receipt).order_by(Receipt.created_at.desc()).all()
+        
+        print(f"📋 Fetched {len(receipts)} receipts from database")
+        
+        return {
+            "receipts": [
+                {
+                    "id": r.id,
+                    "user_name": r.user_name,
+                    "user_phone": r.user_phone,
+                    "item_bought": r.item_bought,
+                    "approved_by": r.approved_by,
+                    "ocr_price": r.ocr_price,
+                    "ocr_date": r.ocr_date,
+                    "ocr_time": r.ocr_time,
+                    "ocr_raw_text": r.ocr_raw_text,
+                    # Build absolute image URL dynamically (avoids hardcoded localhost)
+                    "image_path": f"{str(request.base_url).rstrip('/')}/{r.image_path}",
+                    "created_at": r.created_at.isoformat()
+                }
+                for r in receipts
+            ]
+        }
+    except Exception as e:
+        print(f"❌ Error fetching receipts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch receipts: {str(e)}")
 
 
 @app.put("/api/receipts/{receipt_id}")

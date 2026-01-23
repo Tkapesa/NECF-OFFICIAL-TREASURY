@@ -88,6 +88,30 @@ export default function AdminDashboard() {
   const [loggedInUsername, setLoggedInUsername] = useState('Admin');
   const [darkMode, setDarkMode] = useState(false);
 
+  const parseIsSuperuser = (value) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === 'true' || normalized === '1' || normalized === 'yes';
+    }
+    return false;
+  };
+
+  const getSuperuserFromToken = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) return false;
+      const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+      return parseIsSuperuser(decoded?.is_superuser);
+    } catch (error) {
+      return false;
+    }
+  };
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -102,12 +126,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     // Check if already logged in
     const token = localStorage.getItem('token');
-    const savedSuperuser = localStorage.getItem('is_superuser') === 'true';
+    const savedSuperuser = parseIsSuperuser(localStorage.getItem('is_superuser'));
     const savedUsername = localStorage.getItem('username');
     const savedDarkMode = localStorage.getItem('darkMode') === 'true';
     if (token) {
       setIsAuthenticated(true);
-      setIsSuperuser(savedSuperuser);
+      const superuserFromToken = getSuperuserFromToken();
+      const resolvedSuperuser = savedSuperuser || superuserFromToken;
+      setIsSuperuser(resolvedSuperuser);
+      localStorage.setItem('is_superuser', String(resolvedSuperuser));
       // Only set username if it exists and is not null/undefined
       setLoggedInUsername(savedUsername && savedUsername !== 'null' && savedUsername !== 'undefined' ? savedUsername : 'Admin');
       setDarkMode(savedDarkMode);
@@ -130,10 +157,10 @@ export default function AdminDashboard() {
       const response = await api.post('/login', formData);
       
       const username = response.data.username || credentials.username || 'Admin';
-      const isSuperuser = response.data.is_superuser || false;
+      const isSuperuser = parseIsSuperuser(response.data.is_superuser);
       
       localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('is_superuser', String(isSuperuser));
+      localStorage.setItem('is_superuser', String(Boolean(isSuperuser)));
       localStorage.setItem('username', username);
       
       console.log('Login response:', {
@@ -159,11 +186,17 @@ export default function AdminDashboard() {
       console.log('Fetching receipts from API...');
       const response = await api.get('/receipts');
       console.log('Receipts response:', response.data);
-      
-      if (response.data && response.data.receipts) {
-        setReceipts(response.data.receipts);
-        console.log(`✅ Successfully loaded ${response.data.receipts.length} receipts`);
-        setSnackbar({ open: true, message: `Loaded ${response.data.receipts.length} receipts successfully`, severity: 'success' });
+
+      const apiReceipts = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.receipts)
+        ? response.data.receipts
+        : [];
+
+      if (apiReceipts.length > 0) {
+        setReceipts(apiReceipts);
+        console.log(`✅ Successfully loaded ${apiReceipts.length} receipts`);
+        setSnackbar({ open: true, message: `Loaded ${apiReceipts.length} receipts successfully`, severity: 'success' });
       } else {
         console.warn('⚠️ No receipts data in response');
         setReceipts([]);

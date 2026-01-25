@@ -75,10 +75,14 @@ app.add_middleware(
         "http://localhost:5173",  # Vite default port
         "http://localhost:5174",  # Vite alternate port
         "http://localhost:5175",  # Vite alternate port
-        "https://necftreausry.com",  # Production domain (HTTPS)
-        "http://necftreausry.com",   # Production domain (HTTP fallback)
-        "https://www.necftreausry.com",  # Production with www
-        "http://www.necftreausry.com",   # Production with www (HTTP fallback)
+        "https://necftreausry.com",  # Production domain (HTTPS) - legacy typo
+        "http://necftreausry.com",   # Production domain (HTTP fallback) - legacy typo
+        "https://www.necftreausry.com",  # Production with www - legacy typo
+        "http://www.necftreausry.com",   # Production with www (HTTP fallback) - legacy typo
+        "https://necftreasury.com",  # Production domain (HTTPS)
+        "http://necftreasury.com",   # Production domain (HTTP fallback)
+        "https://www.necftreasury.com",  # Production with www
+        "http://www.necftreasury.com",   # Production with www (HTTP fallback)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -397,7 +401,10 @@ def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: Aut
     
     try:
         # Verify admin token
+        print(f"🔐 Verifying JWT token for /api/receipts endpoint")
         Authorize.jwt_required()
+        current_user = Authorize.get_jwt_subject()
+        print(f"✅ JWT verified for user: {current_user}")
         
         receipts = db.query(Receipt).order_by(Receipt.created_at.desc()).all()
         
@@ -422,8 +429,14 @@ def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: Aut
                 for r in receipts
             ]
         }
+    except HTTPException as http_err:
+        print(f"❌ HTTP Error in /api/receipts: {http_err.status_code} - {http_err.detail}")
+        raise
     except Exception as e:
-        print(f"❌ Error fetching receipts: {str(e)}")
+        print(f"❌ Unexpected error fetching receipts: {str(e)}")
+        print(f"Exception type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch receipts: {str(e)}")
 
 

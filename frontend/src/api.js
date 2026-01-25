@@ -33,6 +33,13 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log(`[API] Token attached to ${config.method?.toUpperCase()} ${config.url}`);
+    }
+  } else if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.warn(`[API] No token found for ${config.method?.toUpperCase()} ${config.url}`);
   }
   return config;
 });
@@ -41,9 +48,24 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Log detailed error information
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error('[API] Error Response:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+      });
+    }
+    
     if (error.response?.status === 401 || error.response?.status === 422) {
       // Token expired or invalid - clear it and reload
+      // eslint-disable-next-line no-console
+      console.warn('[API] Authentication failed (401/422) - clearing token and redirecting to login');
       localStorage.removeItem('token');
+      localStorage.removeItem('is_superuser');
+      localStorage.removeItem('username');
       if (window.location.pathname === '/admin') {
         window.location.reload();
       } else {

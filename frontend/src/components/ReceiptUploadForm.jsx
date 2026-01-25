@@ -248,16 +248,33 @@ export default function ReceiptUploadForm() {
         border: '1px solid',
         borderColor: 'divider',
         background: 'linear-gradient(to bottom, #ffffff 0%, #fafafa 100%)',
+        boxShadow: '0 14px 40px rgba(20, 20, 20, 0.08)',
+        position: 'relative',
+        '&:before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: 'linear-gradient(90deg, #6B1C23 0%, #8B2B35 50%, #4A0E13 100%)',
+        },
+        transition: 'transform 0.35s ease, box-shadow 0.35s ease',
+        '&:hover': {
+          transform: 'translateY(-3px)',
+          boxShadow: '0 18px 48px rgba(20, 20, 20, 0.12)',
+        },
       }}
     >
       {/* Header Section */}
       <Box 
         sx={{ 
-          background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
+          background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%), radial-gradient(120px 120px at 90% 10%, rgba(255,255,255,0.15), rgba(255,255,255,0) 70%)',
           color: 'white',
           p: { xs: 3, sm: 3.5, md: 4 },
           position: 'relative',
           overflow: 'hidden',
+          textShadow: '0 2px 6px rgba(0,0,0,0.25)',
         }}
       >
         <Box
@@ -352,6 +369,7 @@ export default function ReceiptUploadForm() {
                 transition: 'all 0.3s ease',
                 fontSize: { xs: '0.75rem', sm: '0.8125rem' },
                 height: { xs: 28, sm: 32 },
+                '&:hover': { transform: 'translateY(-1px)' },
                 '& .MuiChip-icon': {
                   fontSize: { xs: 16, sm: 18 },
                 },
@@ -364,6 +382,7 @@ export default function ReceiptUploadForm() {
               sx={{ 
                 fontSize: { xs: '0.75rem', sm: '0.8125rem' },
                 height: { xs: 28, sm: 32 },
+                '&:hover': { transform: 'translateY(-1px)' },
                 '& .MuiChip-icon': {
                   fontSize: { xs: 16, sm: 18 },
                 },
@@ -376,6 +395,7 @@ export default function ReceiptUploadForm() {
               sx={{ 
                 fontSize: { xs: '0.75rem', sm: '0.8125rem' },
                 height: { xs: 28, sm: 32 },
+                '&:hover': { transform: 'translateY(-1px)' },
                 '& .MuiChip-icon': {
                   fontSize: { xs: 16, sm: 18 },
                 },
@@ -393,10 +413,13 @@ export default function ReceiptUploadForm() {
               borderColor: image ? '#6B1C23' : 'divider',
               borderRadius: { xs: 2, md: 3 },
               bgcolor: image ? 'rgba(107, 28, 35, 0.02)' : 'transparent',
+              background: 'linear-gradient(180deg, rgba(107, 28, 35, 0.04) 0%, rgba(255,255,255,0.65) 100%)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6)',
               transition: 'all 0.3s ease',
               '&:hover': {
                 borderColor: '#6B1C23',
                 bgcolor: 'rgba(107, 28, 35, 0.02)',
+                boxShadow: '0 8px 24px rgba(107, 28, 35, 0.12)',
               },
             }}
           >
@@ -431,6 +454,7 @@ export default function ReceiptUploadForm() {
                   color: image ? '#6B1C23' : 'white',
                   fontWeight: 'bold',
                   fontSize: { xs: '0.9rem', sm: '0.95rem', md: '1rem' },
+                  letterSpacing: '0.3px',
                   textTransform: 'none',
                   '&:hover': {
                     background: image ? 'rgba(107, 28, 35, 0.08)' : 'linear-gradient(135deg, #4A0E13 0%, #6B1C23 100%)',
@@ -463,6 +487,7 @@ export default function ReceiptUploadForm() {
                   color: image ? '#6B1C23' : 'white',
                   fontWeight: 'bold',
                   fontSize: { xs: '0.9rem', sm: '0.95rem', md: '1rem' },
+                  letterSpacing: '0.3px',
                   textTransform: 'none',
                   '&:hover': {
                     background: image ? 'rgba(107, 28, 35, 0.08)' : 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
@@ -477,12 +502,35 @@ export default function ReceiptUploadForm() {
               </Button>
             </Stack>
 
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{ mt: { xs: 1.5, sm: 2 }, justifyContent: 'center' }}
+            >
+              <Chip
+                label="JPG, PNG • Max 5MB"
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.72rem', borderColor: 'rgba(107, 28, 35, 0.3)' }}
+              />
+              <Chip
+                label="Tip: Use bright, flat lighting"
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.72rem', borderColor: 'rgba(107, 28, 35, 0.3)' }}
+              />
+            </Stack>
+
             {imagePreview && (
               <Fade in={!!imagePreview}>
                 <Box 
                   sx={{ 
                     textAlign: 'center',
                     position: 'relative',
+                    padding: 1,
+                    borderRadius: 2,
+                    border: '1px solid rgba(107, 28, 35, 0.15)',
+                    background: 'rgba(255,255,255,0.7)',
                     '& img': {
                       transition: 'transform 0.3s ease',
                     },

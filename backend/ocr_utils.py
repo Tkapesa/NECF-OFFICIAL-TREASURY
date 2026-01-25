@@ -3,7 +3,7 @@ OCR utilities using pytesseract
 """
 import re
 from datetime import datetime
-from PIL import Image
+from PIL import Image, ImageOps, ImageFilter
 import pytesseract
 
 
@@ -13,9 +13,9 @@ def extract_receipt_data(image_path: str) -> dict:
     Returns dict with extracted fields
     """
     try:
-        # Open image and run OCR
+        # Open image and run OCR with preprocessing + multiple configs
         image = Image.open(image_path)
-        text = pytesseract.image_to_string(image)
+        text = run_ocr_with_fallbacks(image)
         
         # Extract price (look for currency symbols and numbers)
         price = extract_price(text)
@@ -46,16 +46,16 @@ def extract_price(text: str) -> float:
     """Extract price from OCR text"""
     # Look for patterns like $123.45, 123.45, R123.45, etc.
     patterns = [
-        r'(?:USD|R|\$|EUR|£)?\s*(\d+[,.]?\d*\.?\d+)',
-        r'Total[:\s]+(?:USD|R|\$|EUR|£)?\s*(\d+[,.]?\d*\.?\d+)',
-        r'Amount[:\s]+(?:USD|R|\$|EUR|£)?\s*(\d+[,.]?\d*\.?\d+)'
+        r'(?:Grand\s*Total|Total\s*Due|Total|Amount\s*Due|Amount|Balance\s*Due)[:\s]*' 
+        r'(?:USD|R|\$|EUR|£|₦|₵|K|KES|GHS|NGN|ZAR)?\s*(\d{1,3}(?:[\s,]\d{3})*(?:[\.,]\d{2})?)',
+        r'(?:USD|R|\$|EUR|£|₦|₵|K|KES|GHS|NGN|ZAR)?\s*(\d{1,3}(?:[\s,]\d{3})*(?:[\.,]\d{2})?)'
     ]
     
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             try:
-                price_str = match.group(1).replace(',', '')
+                price_str = match.group(1).replace(' ', '').replace(',', '')
                 return float(price_str)
             except ValueError:
                 continue
@@ -69,7 +69,8 @@ def extract_date(text: str) -> str:
     patterns = [
         r'\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b',  # 12/31/2023 or 31-12-2023
         r'\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b',    # 2023-12-31
-        r'\b([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})\b'  # December 31, 2023
+        r'\b([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})\b',  # December 31, 2023
+        r'\b(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\b'     # 31 December 2023
     ]
     
     for pattern in patterns:
@@ -93,3 +94,35 @@ def extract_time(text: str) -> str:
             return match.group(1)
     
     return None
+
+
+def run_ocr_with_fallbacks(image: Image.Image) -> str:
+    """Run OCR with basic preprocessing and multiple tesseract configs."""
+    # Preprocess: grayscale, increase contrast, sharpen
+    gray = ImageOps.grayscale(image)
+    enhanced = ImageOps.autocontrast(gray)
+    sharpened = enhanced.filter(ImageFilter.SHARPEN)
+
+    # Try several configs to improve recall
+    configs = [
+        "--oem 3 --psm 6",
+        "--oem 3 --psm 4",
+        "--oem 3 --psm 11",
+    ]
+
+    texts = []
+    for cfg in configs:
+        try:
+            texts.append(pytesseract.image_to_string(sharpened, config=cfg))
+        except Exception:
+            continue
+
+    # If no text extracted, fall back to raw image
+    if not any(t.strip() for t in texts):
+        try:
+            return pytesseract.image_to_string(image)
+        except Exception:
+            return ""
+
+    # Return the longest text (usually most complete)
+    return max(texts, key=lambda t: len(t.strip()))

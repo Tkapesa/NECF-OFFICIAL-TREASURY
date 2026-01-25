@@ -13,7 +13,7 @@ export default function UploadPage() {
         width: '100vw',
         margin: 0,
         padding: 0,
-        background: 'linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%)',
+        background: 'linear-gradient(135deg, #f7f7f9 0%, #eceff3 100%)',
         position: 'fixed',
         top: 0,
         left: 0,
@@ -21,6 +21,21 @@ export default function UploadPage() {
         bottom: 0,
         overflow: 'hidden',
         overflowY: 'auto',
+        '&:before': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          background:
+            'radial-gradient(600px 300px at 10% 0%, rgba(107, 28, 35, 0.08), transparent 70%),' +
+            'radial-gradient(500px 300px at 90% 10%, rgba(74, 14, 19, 0.06), transparent 70%)',
+          pointerEvents: 'none',
+          animation: 'glowShift 12s ease-in-out infinite',
+        },
+        '@keyframes glowShift': {
+          '0%': { opacity: 0.6, transform: 'translateY(0px)' },
+          '50%': { opacity: 0.9, transform: 'translateY(-6px)' },
+          '100%': { opacity: 0.6, transform: 'translateY(0px)' },
+        },
       }}
     >
       {/* Header */}
@@ -31,6 +46,11 @@ export default function UploadPage() {
         sx={{
           background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
           zIndex: 10,
+          animation: 'dropIn 0.6s ease-out',
+          '@keyframes dropIn': {
+            from: { opacity: 0, transform: 'translateY(-10px)' },
+            to: { opacity: 1, transform: 'translateY(0)' },
+          },
         }}
       >
         <Toolbar sx={{ py: { xs: 0.5, sm: 1 }, px: { xs: 1, sm: 2 } }}>
@@ -69,7 +89,17 @@ export default function UploadPage() {
       </AppBar>
 
       {/* Main Content */}
-      <Box sx={{ py: { xs: 3, sm: 4, md: 6 }, px: { xs: 2, sm: 3, md: 4 }, maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+      <Box 
+        sx={{ 
+          py: { xs: 3, sm: 4, md: 6 }, 
+          px: { xs: 2, sm: 3, md: 4 }, 
+          maxWidth: '900px', 
+          margin: '0 auto', 
+          width: '100%',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
         {/* Hero Section */}
         <Box 
           sx={{ 
@@ -90,6 +120,7 @@ export default function UploadPage() {
               background: 'linear-gradient(135deg, #6B1C23 0%, #4A0E13 100%)',
               mb: { xs: 2, sm: 2.5, md: 3 },
               boxShadow: '0 8px 24px rgba(107, 28, 35, 0.3)',
+              animation: 'floatLogo 5s ease-in-out infinite',
             }}
           >
             <img 
@@ -115,6 +146,7 @@ export default function UploadPage() {
               WebkitTextFillColor: 'transparent',
               mb: 2,
               fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' },
+              animation: 'titleGlow 4s ease-in-out infinite',
             }}
           >
             Submit Your Receipt

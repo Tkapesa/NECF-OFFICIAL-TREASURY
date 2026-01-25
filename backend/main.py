@@ -75,14 +75,10 @@ app.add_middleware(
         "http://localhost:5173",  # Vite default port
         "http://localhost:5174",  # Vite alternate port
         "http://localhost:5175",  # Vite alternate port
-        "https://necftreausry.com",  # Production domain (HTTPS) - legacy typo
-        "http://necftreausry.com",   # Production domain (HTTP fallback) - legacy typo
-        "https://www.necftreausry.com",  # Production with www - legacy typo
-        "http://www.necftreausry.com",   # Production with www (HTTP fallback) - legacy typo
-        "https://necftreasury.com",  # Production domain (HTTPS)
-        "http://necftreasury.com",   # Production domain (HTTP fallback)
-        "https://www.necftreasury.com",  # Production with www
-        "http://www.necftreasury.com",   # Production with www (HTTP fallback)
+        "https://necftreausry.com",  # Production domain (HTTPS)
+        "http://necftreausry.com",   # Production domain (HTTP fallback)
+        "https://www.necftreausry.com",  # Production with www
+        "http://www.necftreausry.com",   # Production with www (HTTP fallback)
     ],
     allow_credentials=True,
     allow_methods=["*"],

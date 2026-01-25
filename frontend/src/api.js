@@ -10,6 +10,12 @@ import axios from 'axios';
 const deriveBaseURL = () => {
   const envUrl = import.meta.env.VITE_API_URL?.trim();
   if (envUrl) return envUrl.replace(/\/$/, '');
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:8000/api';
+  }
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8000/api';
+  }
   return `${window.location.origin}/api`;
 };
 
@@ -17,9 +23,6 @@ const baseURL = deriveBaseURL();
 
 const api = axios.create({
   baseURL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Debug log (will be stripped in production minification but helpful if visible)
@@ -30,6 +33,12 @@ if (import.meta.env.DEV) {
 
 // Add token to requests if available (as Authorization header)
 api.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    // Let the browser set multipart/form-data boundary
+    delete config.headers['Content-Type'];
+  } else if (!config.headers['Content-Type']) {
+    config.headers['Content-Type'] = 'application/json';
+  }
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

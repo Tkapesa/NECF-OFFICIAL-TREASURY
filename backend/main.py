@@ -20,9 +20,9 @@ from ocr_utils import extract_receipt_data
 
 # JWT Configuration
 class Settings(BaseModel):
-    authjwt_secret_key: str = "your-secret-key-change-this-in-production-please"
+    authjwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production-please")
     authjwt_token_location: set = {"headers"}
-    authjwt_access_token_expires: int = 1440 * 60  # 24 hours in seconds
+    authjwt_access_token_expires: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "1440")) * 60
 
 # Receipt Update Model
 class ReceiptUpdate(BaseModel):
@@ -69,9 +69,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 app = FastAPI(title="Church Treasury System")
 
 # CORS middleware for React frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# CORS origins (comma-separated list or "*")
+cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()
+if cors_origins_env:
+    if cors_origins_env == "*":
+        allow_origins = ["*"]
+    else:
+        allow_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    allow_origins = [
         "http://localhost:5173",  # Vite default port
         "http://localhost:5174",  # Vite alternate port
         "http://localhost:5175",  # Vite alternate port
@@ -79,7 +85,11 @@ app.add_middleware(
         "http://necftreausry.com",   # Production domain (HTTP fallback)
         "https://www.necftreausry.com",  # Production with www
         "http://www.necftreausry.com",   # Production with www (HTTP fallback)
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -569,6 +569,17 @@ def bulk_delete_receipts(
     }
 
 
+# ============ FRONTEND STATIC (OPTIONAL) ============
+
+FRONTEND_DIST = os.getenv(
+    "FRONTEND_DIST",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+)
+
+if os.getenv("SERVE_FRONTEND", "0") == "1" and os.path.isdir(FRONTEND_DIST):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -231,6 +231,8 @@ curl -X POST https://your-service-url.onrender.com/login \
   -F "password=YourSecurePassword123!"
 ```
 
+**Note**: Replace `your-service-url.onrender.com` with your actual Render service URL.
+
 Expected response:
 ```json
 {
@@ -340,7 +342,9 @@ If you encounter issues not covered here:
 
 ## Cost Breakdown
 
-### Render Costs (as of 2024)
+### Render Costs (as of January 2026)
+
+**Note**: Pricing is subject to change. Please verify current pricing at [render.com/pricing](https://render.com/pricing) before deployment.
 
 **Free Tier**:
 - 750 hours/month of free service time

@@ -10,8 +10,9 @@ services:
       # Database Configuration
       - key: DATABASE_URL
         sync: false
-        # Set this to your Neon PostgreSQL connection string
+        # REQUIRED: Set this to your Neon PostgreSQL connection string
         # Format: postgresql://user:password@host/database?sslmode=require
+        # Example: postgresql://user:pass@ep-xxxxx.region.aws.neon.tech/dbname?sslmode=require
       
       # JWT Configuration
       - key: JWT_SECRET_KEY
@@ -28,12 +29,13 @@ services:
       # Frontend Configuration
       - key: FRONTEND_URL
         sync: false
-        # Set this to your frontend URL (e.g., https://your-frontend.onrender.com)
+        # REQUIRED: Set this to your frontend URL
+        # Example: https://your-frontend.onrender.com
       
       # CORS Configuration
       - key: CORS_ORIGINS
         sync: false
-        # Set this to your frontend URL(s), comma-separated
+        # REQUIRED: Set this to your frontend URL(s), comma-separated
         # Example: https://your-frontend.onrender.com,https://www.yourdomain.com
       
       # File Upload Configuration
@@ -49,7 +51,8 @@ services:
       
       - key: DEFAULT_ADMIN_PASSWORD
         sync: false
-        # IMPORTANT: Set a strong password for production
+        # REQUIRED: Set a strong password for production
+        # Deployment will fail without this. Use a secure password.
       
       # Logging Configuration
       - key: LOG_LEVEL

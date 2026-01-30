@@ -1,0 +1,74 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: necf-treasury-backend
+    runtime: python3
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Database Configuration
+      - key: DATABASE_URL
+        sync: false
+        # REQUIRED: Set this to your Neon PostgreSQL connection string
+        # Format: postgresql://user:password@host/database?sslmode=require
+        # Example: postgresql://user:pass@ep-xxxxx.region.aws.neon.tech/dbname?sslmode=require
+      
+      # JWT Configuration
+      - key: JWT_SECRET_KEY
+        generateValue: true
+        # Generate a secure random key, or set your own
+      
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440
+      
+      # Backend Server Configuration
+      - key: BACKEND_HOST
+        value: 0.0.0.0
+      
+      # Frontend Configuration
+      - key: FRONTEND_URL
+        sync: false
+        # REQUIRED: Set this to your frontend URL
+        # Example: https://your-frontend.onrender.com
+      
+      # CORS Configuration
+      - key: CORS_ORIGINS
+        sync: false
+        # REQUIRED: Set this to your frontend URL(s), comma-separated
+        # Example: https://your-frontend.onrender.com,https://www.yourdomain.com
+      
+      # File Upload Configuration
+      - key: MAX_UPLOAD_SIZE
+        value: 10485760
+      
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      
+      # Admin Seed Configuration
+      - key: DEFAULT_ADMIN_USERNAME
+        value: admin
+      
+      - key: DEFAULT_ADMIN_PASSWORD
+        sync: false
+        # REQUIRED: Set a strong password for production
+        # Deployment will fail without this. Use a secure password.
+      
+      # Logging Configuration
+      - key: LOG_LEVEL
+        value: INFO
+    
+    # Disk for persistent file uploads
+    disk:
+      name: necf-treasury-uploads
+      mountPath: /var/data
+      sizeGB: 1
+    
+    # Health check endpoint
+    healthCheckPath: /
+    
+    # Auto-deploy on push to main branch
+    autoDeploy: true
+    
+    # System packages via aptfile
+    # The aptfile in backend/ will install tesseract-ocr

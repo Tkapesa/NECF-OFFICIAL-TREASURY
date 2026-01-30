@@ -106,6 +106,21 @@ If you prefer manual setup:
    - Render will automatically detect the `aptfile` in the backend directory
    - This installs Tesseract OCR and English language data
 
+### Important: aptfile Location for Render
+
+Render's buildpack system requires the `aptfile` to be in the **root directory** of the repository to properly install system dependencies like Tesseract OCR. 
+
+- **Root `aptfile`**: Required by Render's buildpack to install system packages during build
+- **Backend `aptfile`**: Kept for documentation purposes
+
+The root `aptfile` contains:
+```
+tesseract-ocr
+tesseract-ocr-eng
+```
+
+Without the root `aptfile`, Tesseract OCR will not be installed, causing OCR functionality to fail with empty `ocr_raw_text`, `ocr_price`, `ocr_date`, and `ocr_time` values in receipt uploads.
+
 ---
 
 ## Configuring Environment Variables

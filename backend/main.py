@@ -182,8 +182,11 @@ def root():
 
 
 @app.get("/api/debug/tesseract")
-async def check_tesseract():
-    """Debug endpoint to verify Tesseract installation"""
+async def check_tesseract(Authorize: AuthJWT = Depends()):
+    """Debug endpoint to verify Tesseract installation (requires authentication)"""
+    # Verify admin token
+    Authorize.jwt_required()
+    
     try:
         result = subprocess.run(
             ["tesseract", "--version"], 
@@ -193,13 +196,14 @@ async def check_tesseract():
         return {
             "tesseract_installed": True,
             "version": result.stdout,
-            "path": "/usr/bin/tesseract",
+            "configured_path": os.getenv("TESSERACT_CMD", "/usr/bin/tesseract"),
             "pytesseract_cmd": pytesseract.pytesseract.tesseract_cmd
         }
     except FileNotFoundError:
         return {
             "tesseract_installed": False,
-            "error": "Tesseract not found in PATH"
+            "error": "Tesseract not found in PATH",
+            "configured_path": os.getenv("TESSERACT_CMD", "/usr/bin/tesseract")
         }
 
 

@@ -182,28 +182,36 @@ def root():
 
 
 @app.get("/api/debug/tesseract")
-async def check_tesseract(Authorize: AuthJWT = Depends()):
-    """Debug endpoint to verify Tesseract installation (requires JWT authentication)"""
-    # Verify JWT token (admin only)
-    Authorize.jwt_required()
+async def check_tesseract():
+    """Debug endpoint to verify Tesseract installation - PUBLIC ACCESS"""
+    import subprocess
     
     try:
         result = subprocess.run(
             ["tesseract", "--version"], 
             capture_output=True, 
-            text=True
+            text=True,
+            timeout=5
         )
         return {
             "tesseract_installed": True,
             "version": result.stdout,
-            "configured_path": os.getenv("TESSERACT_CMD", "/usr/bin/tesseract"),
+            "stderr": result.stderr,
+            "path": "/usr/bin/tesseract",
             "pytesseract_cmd": pytesseract.pytesseract.tesseract_cmd
         }
     except FileNotFoundError:
         return {
             "tesseract_installed": False,
-            "error": "Tesseract not found in PATH",
-            "configured_path": os.getenv("TESSERACT_CMD", "/usr/bin/tesseract")
+            "error": "Tesseract binary not found",
+            "searched_path": "/usr/bin/tesseract",
+            "pytesseract_cmd": pytesseract.pytesseract.tesseract_cmd
+        }
+    except Exception as e:
+        return {
+            "tesseract_installed": False,
+            "error": str(e),
+            "error_type": type(e).__name__
         }
 
 
@@ -402,11 +410,22 @@ async def upload_receipt(
     filename = f"{timestamp}_{image.filename}"
     file_path = f"uploads/{filename}"
     
+    print(f"📸 Saving image to: {file_path}")
+    
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(image.file, buffer)
     
+    print(f"✅ Image saved successfully: {file_path}")
+    print(f"🔍 Running OCR on image...")
+    
     # Run OCR on the image
     ocr_data = extract_receipt_data(file_path)
+    
+    print(f"📊 OCR Results:")
+    print(f"   - Price: {ocr_data.get('ocr_price')}")
+    print(f"   - Date: {ocr_data.get('ocr_date')}")
+    print(f"   - Time: {ocr_data.get('ocr_time')}")
+    print(f"   - Raw text length: {len(ocr_data.get('ocr_raw_text', ''))}")
     
     # Create receipt record
     receipt = Receipt(
@@ -421,6 +440,8 @@ async def upload_receipt(
     db.add(receipt)
     db.commit()
     db.refresh(receipt)
+    
+    print(f"💾 Receipt saved to database with ID: {receipt.id}")
     
     return {
         "message": "Receipt uploaded successfully",

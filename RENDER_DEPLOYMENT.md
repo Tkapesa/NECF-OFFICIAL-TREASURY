@@ -131,6 +131,56 @@ After creating the service, configure these environment variables in Render:
 
 Navigate to **Service Settings** → **Environment** and add:
 
+#### Critical (Must Set):
+
+```bash
+# Database Connection (Neon PostgreSQL)
+DATABASE_URL="postgresql://username:password@host/database?sslmode=require"
+
+# JWT Authentication
+JWT_SECRET_KEY="your-secure-random-key-here"
+
+# Default Admin Account
+DEFAULT_ADMIN_PASSWORD="YourSecurePassword123!"
+DEFAULT_ADMIN_USERNAME="admin"  # Optional, defaults to "admin"
+
+# CORS - Frontend Access
+CORS_ORIGINS="https://necftreausry.com,https://www.necftreausry.com"
+
+# Frontend URL (for emails, redirects, etc.)
+FRONTEND_URL="https://necftreausry.com"
+```
+
+#### Optional:
+
+```bash
+# File Upload
+MAX_UPLOAD_SIZE=10485760
+UPLOAD_DIR="/var/data/uploads"
+
+# Logging
+LOG_LEVEL="INFO"
+
+# JWT Token Expiration (in minutes)
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
+```
+
+#### Important Notes:
+
+1. **DATABASE_URL must use `postgresql://`** not `postgres://` (the backend auto-corrects this)
+2. **CORS_ORIGINS must include your frontend domain** (comma-separated for multiple)
+3. **DEFAULT_ADMIN_PASSWORD is required** for first-time setup
+4. Use **Neon Pooled Connection string** for better performance
+
+#### How to Get Neon DATABASE_URL:
+1. Go to https://console.neon.tech
+2. Select your project
+3. Click "Connection Details"
+4. Copy the **"Pooled connection"** string
+5. Paste into Render Environment Variables
+
+### Environment Variables Reference Table
+
 | Variable Name | Value | Description |
 |--------------|-------|-------------|
 | `DATABASE_URL` | Your Neon connection string | PostgreSQL database URL from Neon |

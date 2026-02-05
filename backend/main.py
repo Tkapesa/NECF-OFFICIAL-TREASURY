@@ -14,6 +14,7 @@ import os
 import re
 from typing import Optional
 import subprocess
+import traceback
 
 from database import get_db, init_db
 from models import Receipt, Admin
@@ -71,23 +72,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 app = FastAPI(title="Church Treasury System")
 
 # CORS middleware for React frontend
-# CORS origins (comma-separated list or "*")
 cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()
+
 if cors_origins_env:
     if cors_origins_env == "*":
         allow_origins = ["*"]
+        print("⚠️  WARNING: CORS set to allow ALL origins (*) - not recommended for production!")
     else:
         allow_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+        print(f"🔒 CORS restricted to: {', '.join(allow_origins)}")
 else:
+    # Default fallback origins
     allow_origins = [
-        "http://localhost:5173",  # Vite default port
-        "http://localhost:5174",  # Vite alternate port
-        "http://localhost:5175",  # Vite alternate port
-        "https://necftreausry.com",  # Production domain (HTTPS)
-        "http://necftreausry.com",   # Production domain (HTTP fallback)
-        "https://www.necftreausry.com",  # Production with www
-        "http://www.necftreausry.com",   # Production with www (HTTP fallback)
+        "http://localhost:5173",
+        "http://localhost:5174", 
+        "http://localhost:5175",
+        "https://necftreausry.com",
+        "https://www.necftreausry.com",
     ]
+    print("⚠️  CORS_ORIGINS not set - using default localhost + production domains")
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,6 +98,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Add this to expose all headers
 )
 
 # Serve uploaded images
@@ -106,24 +110,92 @@ os.makedirs("uploads", exist_ok=True)
 # Initialize database on startup
 @app.on_event("startup")
 def startup_event():
-    init_db()
-    # Create default superuser admin (username: admin, password: admin123)
-    db = next(get_db())
-    existing_admin = db.query(Admin).filter(Admin.username == "admin").first()
-    if not existing_admin:
-        admin = Admin(
-            username="admin",
-            hashed_password=hash_password("admin123"),
-            is_superuser=True  # Make default admin a superuser
-        )
-        db.add(admin)
-        db.commit()
-        print("✅ Default SUPERUSER admin created: username=admin, password=admin123")
-    elif not existing_admin.is_superuser:
-        # Upgrade existing admin to superuser
-        existing_admin.is_superuser = True
-        db.commit()
-        print("✅ Existing admin upgraded to SUPERUSER")
+    """Initialize database and perform startup checks"""
+    print("=" * 60)
+    print("🚀 NECF Treasury Backend Starting Up...")
+    print("=" * 60)
+    
+    # 1. Validate critical environment variables
+    print("\n📋 Checking environment variables...")
+    required_vars = {
+        "DATABASE_URL": os.getenv("DATABASE_URL"),
+        "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY"),
+        "DEFAULT_ADMIN_PASSWORD": os.getenv("DEFAULT_ADMIN_PASSWORD")
+    }
+    
+    missing_vars = [key for key, value in required_vars.items() if not value]
+    if missing_vars:
+        print(f"❌ ERROR: Missing required environment variables: {', '.join(missing_vars)}")
+        print("⚠️  Backend will start but functionality may be limited!")
+    else:
+        print("✅ All required environment variables are set")
+    
+    # 2. Check database connection
+    print("\n🔌 Connecting to database...")
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./treasury.db")
+    
+    if db_url.startswith("postgresql://"):
+        print(f"✅ Using Neon PostgreSQL database")
+    elif db_url.startswith("sqlite://"):
+        print(f"⚠️  WARNING: Using SQLite (data will be lost on restart!)")
+    else:
+        print(f"⚠️  WARNING: Unknown database type: {db_url[:20]}...")
+    
+    # 3. Initialize database tables
+    print("\n📊 Initializing database tables...")
+    try:
+        init_db()
+        print("✅ Database tables initialized successfully")
+    except Exception as e:
+        print(f"❌ ERROR: Failed to initialize database: {str(e)}")
+        print(f"Full error: {traceback.format_exc()}")
+    
+    # 4. Seed default admin user
+    print("\n👤 Checking admin user...")
+    try:
+        db = next(get_db())
+        admin_username = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
+        admin = db.query(Admin).filter(Admin.username == admin_username).first()
+        
+        if not admin:
+            admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD")
+            if admin_password:
+                hashed_password = hash_password(admin_password)
+                new_admin = Admin(
+                    username=admin_username,
+                    hashed_password=hashed_password,
+                    is_superuser=True
+                )
+                db.add(new_admin)
+                db.commit()
+                print(f"✅ Created default admin user: {admin_username}")
+            else:
+                print("⚠️  WARNING: DEFAULT_ADMIN_PASSWORD not set - admin user not created!")
+        else:
+            print(f"✅ Admin user exists: {admin_username}")
+            # Ensure admin is superuser
+            if not admin.is_superuser:
+                admin.is_superuser = True
+                db.commit()
+                print(f"✅ Upgraded admin user to superuser: {admin_username}")
+        
+        db.close()
+    except Exception as e:
+        print(f"❌ ERROR: Failed to check/create admin user: {str(e)}")
+        print(f"Full error: {traceback.format_exc()}")
+    
+    # 5. Display CORS configuration
+    print("\n🌐 CORS Configuration:")
+    cors_origins = os.getenv("CORS_ORIGINS", "").strip()
+    if cors_origins:
+        origins = [o.strip() for o in cors_origins.split(",")]
+        print(f"✅ Allowing requests from: {', '.join(origins)}")
+    else:
+        print("⚠️  Using default CORS origins (localhost only)")
+    
+    print("\n" + "=" * 60)
+    print("✅ Startup complete! Backend is ready.")
+    print("=" * 60)
 
 
 # ============ AUTH UTILITIES ============
@@ -179,6 +251,34 @@ def validate_strong_password(password: str) -> bool:
 def root():
     """Health check"""
     return {"message": "Church Treasury System API", "status": "running"}
+
+
+@app.get("/api/health")
+async def health_check(db: Session = Depends(get_db)):
+    """
+    Health check endpoint - verifies database connection and service status
+    """
+    try:
+        # Try to query the database
+        admin_count = db.query(Admin).count()
+        receipt_count = db.query(Receipt).count()
+        
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "tables": {
+                "admins": admin_count,
+                "receipts": receipt_count
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 @app.get("/api/debug/tesseract")

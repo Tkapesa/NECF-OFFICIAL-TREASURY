@@ -28,7 +28,6 @@ def extract_receipt_data(image_path: str) -> dict:
         
         text = run_ocr_with_fallbacks(image)
         print(f"🔍 OCR: Extracted text length: {len(text)}")
-        print(f"🔍 OCR: First 200 chars: {text[:200]}")
         
         # Extract price (look for currency symbols and numbers)
         price = extract_price(text)

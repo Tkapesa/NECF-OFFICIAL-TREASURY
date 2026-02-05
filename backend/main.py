@@ -98,7 +98,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],  # Add this to expose all headers
+    expose_headers=["Content-Type", "Authorization"],  # Expose only necessary headers
 )
 
 # Serve uploaded images
@@ -135,7 +135,7 @@ def startup_event():
     db_url = os.getenv("DATABASE_URL", "sqlite:///./treasury.db")
     
     if db_url.startswith("postgresql://"):
-        print(f"✅ Using Neon PostgreSQL database")
+        print(f"✅ Using PostgreSQL database")
     elif db_url.startswith("sqlite://"):
         print(f"⚠️  WARNING: Using SQLite (data will be lost on restart!)")
     else:
@@ -259,7 +259,7 @@ async def health_check(db: Session = Depends(get_db)):
     Health check endpoint - verifies database connection and service status
     """
     try:
-        # Try to query the database
+        # Try to query the database - using simple query for performance
         admin_count = db.query(Admin).count()
         receipt_count = db.query(Receipt).count()
         
@@ -273,10 +273,16 @@ async def health_check(db: Session = Depends(get_db)):
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
+        # Log the full error server-side for debugging
+        print(f"❌ Health check failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return generic error to client
         return {
             "status": "unhealthy",
             "database": "disconnected",
-            "error": str(e),
+            "error": "Database connection failed",
             "timestamp": datetime.now().isoformat()
         }
 

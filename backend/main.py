@@ -13,10 +13,12 @@ import shutil
 import os
 import re
 from typing import Optional
+import subprocess
 
 from database import get_db, init_db
 from models import Receipt, Admin
 from ocr_utils import extract_receipt_data
+import pytesseract
 
 # JWT Configuration
 class Settings(BaseModel):
@@ -177,6 +179,32 @@ def validate_strong_password(password: str) -> bool:
 def root():
     """Health check"""
     return {"message": "Church Treasury System API", "status": "running"}
+
+
+@app.get("/api/debug/tesseract")
+async def check_tesseract(Authorize: AuthJWT = Depends()):
+    """Debug endpoint to verify Tesseract installation (requires JWT authentication)"""
+    # Verify JWT token (admin only)
+    Authorize.jwt_required()
+    
+    try:
+        result = subprocess.run(
+            ["tesseract", "--version"], 
+            capture_output=True, 
+            text=True
+        )
+        return {
+            "tesseract_installed": True,
+            "version": result.stdout,
+            "configured_path": os.getenv("TESSERACT_CMD", "/usr/bin/tesseract"),
+            "pytesseract_cmd": pytesseract.pytesseract.tesseract_cmd
+        }
+    except FileNotFoundError:
+        return {
+            "tesseract_installed": False,
+            "error": "Tesseract not found in PATH",
+            "configured_path": os.getenv("TESSERACT_CMD", "/usr/bin/tesseract")
+        }
 
 
 @app.post("/api/login")

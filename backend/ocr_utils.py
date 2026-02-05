@@ -2,9 +2,15 @@
 OCR utilities using pytesseract
 """
 import re
+import traceback
 from datetime import datetime
 from PIL import Image, ImageOps, ImageFilter
 import pytesseract
+import os
+
+# CRITICAL: Set Tesseract path for Render deployment
+# Allow override via environment variable for flexibility
+pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_CMD", "/usr/bin/tesseract")
 
 
 def extract_receipt_data(image_path: str) -> dict:
@@ -33,7 +39,9 @@ def extract_receipt_data(image_path: str) -> dict:
             "ocr_raw_text": text
         }
     except Exception as e:
-        print(f"OCR Error: {str(e)}")
+        error_details = traceback.format_exc()
+        print(f"❌ OCR Error: {str(e)}")
+        print(f"Full traceback: {error_details}")
         return {
             "ocr_price": None,
             "ocr_date": None,

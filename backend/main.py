@@ -183,8 +183,8 @@ def root():
 
 @app.get("/api/debug/tesseract")
 async def check_tesseract(Authorize: AuthJWT = Depends()):
-    """Debug endpoint to verify Tesseract installation (requires authentication)"""
-    # Verify admin token
+    """Debug endpoint to verify Tesseract installation (requires JWT authentication)"""
+    # Verify JWT token (admin only)
     Authorize.jwt_required()
     
     try:

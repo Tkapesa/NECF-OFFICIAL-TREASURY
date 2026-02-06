@@ -68,6 +68,27 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except ValueError:
         return False
 
+# File upload configuration - System directories to block
+FORBIDDEN_SYSTEM_DIRS = [os.sep + "etc" + os.sep, os.sep + "root" + os.sep, 
+                         os.sep + "sys" + os.sep, os.sep + "proc" + os.sep, 
+                         os.sep + "boot" + os.sep, os.sep + "dev" + os.sep]
+
+# Configure upload directory from environment
+UPLOAD_DIR_RAW = os.getenv("UPLOAD_DIR", "uploads")
+# Validate upload directory path for security
+# Check for path traversal attempts before normalization
+if ".." in UPLOAD_DIR_RAW:
+    raise ValueError("Invalid UPLOAD_DIR configuration: path traversal sequences are not allowed")
+# Normalize and convert to absolute path
+UPLOAD_DIR = os.path.abspath(UPLOAD_DIR_RAW)
+# Prevent writing to sensitive system directories
+# Add trailing separator to UPLOAD_DIR for exact matching
+upload_dir_check = UPLOAD_DIR + os.sep
+if any(upload_dir_check.startswith(prefix) for prefix in FORBIDDEN_SYSTEM_DIRS):
+    raise ValueError("Invalid UPLOAD_DIR configuration: cannot use system directories")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+print(f"📁 Upload directory: {UPLOAD_DIR}")
+
 # Initialize FastAPI app
 app = FastAPI(title="Church Treasury System")
 
@@ -102,10 +123,7 @@ app.add_middleware(
 )
 
 # Serve uploaded images
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Create uploads folder if not exists
-os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # Initialize database on startup
 @app.on_event("startup")
@@ -514,7 +532,7 @@ async def upload_receipt(
     # Save uploaded image
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{image.filename}"
-    file_path = f"uploads/{filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
     
     print(f"📸 Saving image to: {file_path}")
     

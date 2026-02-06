@@ -73,9 +73,13 @@ UPLOAD_DIR_RAW = os.getenv("UPLOAD_DIR", "uploads")
 # Validate upload directory path for security
 # Check for path traversal attempts in the raw input
 if ".." in UPLOAD_DIR_RAW or "%2e%2e" in UPLOAD_DIR_RAW.lower():
-    raise ValueError("Invalid UPLOAD_DIR configuration")
+    raise ValueError("Invalid UPLOAD_DIR configuration: path traversal sequences are not allowed")
 # Normalize and convert to absolute path
 UPLOAD_DIR = os.path.normpath(os.path.abspath(UPLOAD_DIR_RAW))
+# Prevent writing to sensitive system directories
+forbidden_prefixes = ["/etc", "/root", "/sys", "/proc", "/boot", "/dev"]
+if any(UPLOAD_DIR.startswith(prefix) for prefix in forbidden_prefixes):
+    raise ValueError("Invalid UPLOAD_DIR configuration: cannot use system directories")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 print(f"📁 Upload directory: {UPLOAD_DIR}")
 

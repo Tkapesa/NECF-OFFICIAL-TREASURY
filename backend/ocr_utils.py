@@ -3,6 +3,7 @@ OCR utilities using pytesseract
 """
 import re
 import traceback
+import warnings
 from datetime import datetime
 from PIL import Image, ImageOps, ImageFilter
 import pytesseract
@@ -63,6 +64,12 @@ def extract_receipt_data(image_path: str) -> dict:
     DEPRECATED: Use extract_receipt_data_from_pil_image() instead
     Kept for backward compatibility with existing code
     """
+    warnings.warn(
+        "extract_receipt_data() is deprecated. Use extract_receipt_data_from_pil_image() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     print(f"🔍 OCR: Starting extraction for: {image_path}")
     print(f"🔍 OCR: Tesseract path: {pytesseract.pytesseract.tesseract_cmd}")
     

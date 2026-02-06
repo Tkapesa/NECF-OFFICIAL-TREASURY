@@ -500,6 +500,31 @@ def delete_admin(
 
 # ============ RECEIPT ROUTES ============
 
+def build_image_url(receipt: Receipt, base_url: str) -> str:
+    """
+    Build the appropriate image URL for a receipt.
+    
+    Args:
+        receipt: Receipt object
+        base_url: Base URL from the request
+    
+    Returns:
+        str: Image URL or None if no image available
+    """
+    base = base_url.rstrip('/')
+    
+    # New receipts with database-stored images
+    if receipt.image_data:
+        return f"{base}/api/receipts/{receipt.id}/image"
+    
+    # Old receipts with filesystem paths (backward compatibility)
+    if receipt.image_path:
+        return f"{base}/{receipt.image_path}"
+    
+    # No image available
+    return None
+
+
 @app.post("/api/receipts/upload")
 async def upload_receipt(
     image: UploadFile = File(...),
@@ -521,6 +546,8 @@ async def upload_receipt(
     image_bytes = await image.read()
     
     # Convert to Base64 for database storage
+    # NOTE: Base64 encoding increases size by ~33%. For production optimization,
+    # consider implementing image compression before encoding.
     image_base64 = base64.b64encode(image_bytes).decode('utf-8')
     
     print(f"✅ Image converted to Base64 (size: {len(image_base64)} chars)")
@@ -599,6 +626,8 @@ def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: Aut
         
         print(f"📋 Fetched {len(receipts)} receipts from database")
         
+        base_url = str(request.base_url)
+        
         return {
             "receipts": [
                 {
@@ -611,8 +640,7 @@ def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: Aut
                     "ocr_date": r.ocr_date,
                     "ocr_time": r.ocr_time,
                     "ocr_raw_text": r.ocr_raw_text,
-                    # Use new image endpoint URL for receipts with image_data, fallback to old path for backward compatibility
-                    "image_path": f"{str(request.base_url).rstrip('/')}/api/receipts/{r.id}/image" if r.image_data else (f"{str(request.base_url).rstrip('/')}/{r.image_path}" if r.image_path else None),
+                    "image_path": build_image_url(r, base_url),
                     "created_at": r.created_at.isoformat()
                 }
                 for r in receipts

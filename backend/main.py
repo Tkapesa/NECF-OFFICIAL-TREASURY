@@ -12,6 +12,7 @@ from pydantic import BaseModel
 import shutil
 import os
 import re
+import urllib.parse
 from typing import Optional
 import subprocess
 import traceback
@@ -71,13 +72,16 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # File upload configuration
 UPLOAD_DIR_RAW = os.getenv("UPLOAD_DIR", "uploads")
 # Validate upload directory path for security
-# Check for path traversal attempts in the raw input
-if ".." in UPLOAD_DIR_RAW or "%2e%2e" in UPLOAD_DIR_RAW.lower():
+# Decode URL encoding to catch encoded path traversal attempts
+decoded_path = urllib.parse.unquote(UPLOAD_DIR_RAW)
+# Check for path traversal in decoded path before normalization
+if ".." in decoded_path:
     raise ValueError("Invalid UPLOAD_DIR configuration: path traversal sequences are not allowed")
 # Normalize and convert to absolute path
-UPLOAD_DIR = os.path.normpath(os.path.abspath(UPLOAD_DIR_RAW))
-# Prevent writing to sensitive system directories
-forbidden_prefixes = ["/etc", "/root", "/sys", "/proc", "/boot", "/dev"]
+UPLOAD_DIR = os.path.abspath(decoded_path)
+# Prevent writing to sensitive system directories (check after normalization)
+forbidden_prefixes = [os.sep + "etc", os.sep + "root", os.sep + "sys", 
+                      os.sep + "proc", os.sep + "boot", os.sep + "dev"]
 if any(UPLOAD_DIR.startswith(prefix) for prefix in forbidden_prefixes):
     raise ValueError("Invalid UPLOAD_DIR configuration: cannot use system directories")
 os.makedirs(UPLOAD_DIR, exist_ok=True)

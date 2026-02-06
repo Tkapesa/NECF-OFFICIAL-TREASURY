@@ -48,6 +48,29 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../api';
 
+// API URL configuration - get from environment or use current origin
+// Expected VITE_API_URL formats:
+//   - With /api: "http://localhost:8000/api" -> returns "http://localhost:8000"
+//   - Without /api: "http://localhost:8000" -> returns "http://localhost:8000"
+//   - Production: "https://example.com/api" -> returns "https://example.com"
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    // Remove trailing /api if present, as we'll add it back in getImageUrl
+    return envUrl.replace(/\/api\/?$/, '');
+  }
+  
+  // In development, use localhost:8000
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8000';
+  }
+  
+  // In production, use current origin
+  return window.location.origin;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
 export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -59,6 +82,24 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
   const [menuReceiptId, setMenuReceiptId] = useState(null);
   const [expandedRows, setExpandedRows] = useState([]);
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
+
+  // Helper function to build image URL
+  const getImageUrl = (receipt) => {
+    // The backend builds the full image URL and returns it in image_path
+    // For new receipts: /api/receipts/{id}/image (database-stored images)
+    // For old receipts: /uploads/{filename} (filesystem paths)
+    if (receipt.image_path) {
+      return receipt.image_path;
+    }
+    
+    // Fallback: Build API URL from receipt ID if image_path is missing
+    // but receipt has an ID (shouldn't happen with current backend logic)
+    if (receipt.id) {
+      return `${API_BASE_URL}/api/receipts/${receipt.id}/image`;
+    }
+    
+    return null;
+  };
 
   const handleEdit = (receipt) => {
     setEditingId(receipt.id);
@@ -249,7 +290,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                 {/* Header with Image and Title */}
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2, gap: 2 }}>
                   <Avatar
-                    src={receipt.image_path}
+                    src={getImageUrl(receipt)}
                     variant="rounded"
                     sx={{
                       width: 60,
@@ -258,7 +299,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                       border: '2px solid #e0e0e0',
                       flexShrink: 0,
                     }}
-                    onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                    onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
                   >
                     <ReceiptLongIcon />
                   </Avatar>
@@ -443,14 +484,14 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                           </Box>
                         </Grid>
                       )}
-                      {receipt.image_path && (
+                      {getImageUrl(receipt) && (
                         <Grid item xs={12}>
                           <Button
                             variant="outlined"
                             size="small"
                             fullWidth
                             startIcon={<ZoomInIcon />}
-                            onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                            onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
                             sx={{ mt: 1 }}
                           >
                             View Receipt Image
@@ -836,7 +877,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                       ) : (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                           <Avatar
-                            src={receipt.image_path}
+                            src={getImageUrl(receipt)}
                             variant="rounded"
                             sx={{ 
                               width: 48, 
@@ -851,7 +892,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                                 borderColor: '#6B1C23',
                               },
                             }}
-                            onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                            onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
                         >
                           <ReceiptLongIcon />
                         </Avatar>
@@ -1184,7 +1225,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                         )}
 
                         {/* Receipt Image */}
-                        {receipt.image_path && (
+                        {getImageUrl(receipt) && (
                           <Box sx={{ mt: 2 }}>
                             <Paper 
                               elevation={0} 
@@ -1206,23 +1247,57 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                                   gap: 2,
                                 }}
                               >
-                                <img 
-                                  src={receipt.image_path} 
-                                  alt={receipt.item_bought}
-                                  style={{ 
-                                    maxWidth: '200px', 
-                                    maxHeight: '200px', 
-                                    borderRadius: '8px',
-                                    border: darkMode ? '1px solid #555' : '1px solid #e0e0e0',
-                                    cursor: 'pointer',
+                                <Box
+                                  sx={{
+                                    display: 'inline-block',
+                                    position: 'relative',
+                                    maxWidth: '200px',
+                                    maxHeight: '200px',
                                   }}
-                                  onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
-                                />
+                                >
+                                  <img 
+                                    src={getImageUrl(receipt)} 
+                                    alt={receipt.item_bought}
+                                    style={{ 
+                                      maxWidth: '200px', 
+                                      maxHeight: '200px', 
+                                      borderRadius: '8px',
+                                      border: darkMode ? '1px solid #555' : '1px solid #e0e0e0',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
+                                    onError={(e) => {
+                                      console.error('Failed to load image for receipt', receipt.id);
+                                      // Replace failed image with a placeholder
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                  />
+                                  <Box
+                                    sx={{
+                                      display: 'none',
+                                      width: '200px',
+                                      height: '150px',
+                                      justifyContent: 'center',
+                                      alignItems: 'center',
+                                      borderRadius: '8px',
+                                      border: darkMode ? '1px solid #555' : '1px solid #e0e0e0',
+                                      bgcolor: darkMode ? '#1a1a1a' : '#f5f5f5',
+                                      flexDirection: 'column',
+                                      gap: 1,
+                                    }}
+                                  >
+                                    <ReceiptLongIcon sx={{ fontSize: 48, color: darkMode ? '#666' : '#999' }} />
+                                    <Typography variant="caption" color="textSecondary">
+                                      Image unavailable
+                                    </Typography>
+                                  </Box>
+                                </Box>
                                 <Button
                                   variant="outlined"
                                   size="small"
                                   startIcon={<ZoomInIcon />}
-                                  onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                                  onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
                                   sx={{
                                     color: darkMode ? '#fff' : '#d32f2f',
                                     borderColor: darkMode ? '#fff' : '#d32f2f',

@@ -173,6 +173,63 @@ def startup_event():
         print(f"❌ ERROR: Failed to initialize database: {str(e)}")
         print(f"Full error: {traceback.format_exc()}")
     
+    # 3.5 Run database migrations
+    print("\n🔄 Running database migrations...")
+    try:
+        from database import engine
+        from sqlalchemy import text, inspect
+        
+        with engine.begin() as conn:  # Use begin() for automatic transaction handling
+            inspector = inspect(engine)
+            
+            # Check if receipts table exists
+            if 'receipts' in inspector.get_table_names():
+                # Get full column information (names and details)
+                columns_info = inspector.get_columns('receipts')
+                column_names = [col['name'] for col in columns_info]
+                
+                migrations_needed = []
+                
+                # Check for image_data column
+                if 'image_data' not in column_names:
+                    migrations_needed.append("image_data")
+                    conn.execute(text("ALTER TABLE receipts ADD COLUMN image_data TEXT"))
+                    print("✅ Added column: image_data (for Base64 image storage)")
+                
+                # Check for image_content_type column
+                if 'image_content_type' not in column_names:
+                    migrations_needed.append("image_content_type")
+                    conn.execute(text("ALTER TABLE receipts ADD COLUMN image_content_type VARCHAR"))
+                    print("✅ Added column: image_content_type (for MIME type)")
+                
+                # Make image_path nullable if it isn't already
+                if 'image_path' in column_names:
+                    # Check if column is already nullable using pre-fetched column info
+                    try:
+                        col_info = next((col for col in columns_info if col['name'] == 'image_path'), None)
+                        if col_info and not col_info.get('nullable', True):
+                            # PostgreSQL syntax to drop NOT NULL constraint
+                            conn.execute(text("ALTER TABLE receipts ALTER COLUMN image_path DROP NOT NULL"))
+                            print("✅ Updated column: image_path (now nullable)")
+                        else:
+                            print("✅ Column image_path is already nullable")
+                    except Exception as e:
+                        # Log the error but continue - this might be SQLite or column already nullable
+                        print(f"⚠️  Could not modify image_path constraint: {str(e)}")
+                        print("⚠️  This is expected for SQLite databases or if column is already nullable")
+                
+                if migrations_needed:
+                    print(f"✅ Database migration complete: Added {len(migrations_needed)} column(s)")
+                else:
+                    print("✅ Database schema is up to date")
+            else:
+                print("✅ Fresh database - all tables created")
+        
+    except Exception as e:
+        print(f"⚠️  Migration warning: {str(e)}")
+        print(f"⚠️  Full error: {traceback.format_exc()}")
+        print("⚠️  Continuing startup (tables may already exist or migration not needed)...")
+    
     # 4. Seed default admin user
     print("\n👤 Checking admin user...")
     try:

@@ -3,9 +3,9 @@ services:
   - type: web
     name: necf-treasury-backend
     runtime: python3
-    rootDir: backend  # REQUIRED: Service runs from backend/ directory
-    buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    rootDir:     backend # REQUIRED: Service runs from backend/ directory
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       # Database Configuration
       - key: DATABASE_URL

@@ -179,7 +179,7 @@ def startup_event():
         from database import engine
         from sqlalchemy import text, inspect
         
-        with engine.connect() as conn:
+        with engine.begin() as conn:  # Use begin() for automatic transaction handling
             inspector = inspect(engine)
             
             # Check if receipts table exists
@@ -192,26 +192,30 @@ def startup_event():
                 if 'image_data' not in columns:
                     migrations_needed.append("image_data")
                     conn.execute(text("ALTER TABLE receipts ADD COLUMN image_data TEXT"))
-                    conn.commit()
                     print("✅ Added column: image_data (for Base64 image storage)")
                 
                 # Check for image_content_type column
                 if 'image_content_type' not in columns:
                     migrations_needed.append("image_content_type")
                     conn.execute(text("ALTER TABLE receipts ADD COLUMN image_content_type VARCHAR"))
-                    conn.commit()
                     print("✅ Added column: image_content_type (for MIME type)")
                 
                 # Make image_path nullable if it isn't already
                 if 'image_path' in columns:
-                    # PostgreSQL syntax
+                    # Check if column is already nullable
                     try:
-                        conn.execute(text("ALTER TABLE receipts ALTER COLUMN image_path DROP NOT NULL"))
-                        conn.commit()
-                        print("✅ Updated column: image_path (now nullable)")
-                    except Exception:
-                        # Column might already be nullable
-                        pass
+                        # Get column info to check if it's nullable
+                        col_info = next((col for col in inspector.get_columns('receipts') if col['name'] == 'image_path'), None)
+                        if col_info and not col_info.get('nullable', True):
+                            # PostgreSQL syntax to drop NOT NULL constraint
+                            conn.execute(text("ALTER TABLE receipts ALTER COLUMN image_path DROP NOT NULL"))
+                            print("✅ Updated column: image_path (now nullable)")
+                        else:
+                            print("✅ Column image_path is already nullable")
+                    except Exception as e:
+                        # Log the error but continue - this might be SQLite or column already nullable
+                        print(f"⚠️  Could not modify image_path constraint: {str(e)}")
+                        print("⚠️  This is expected for SQLite databases or if column is already nullable")
                 
                 if migrations_needed:
                     print(f"✅ Database migration complete: Added {len(migrations_needed)} column(s)")
@@ -222,7 +226,8 @@ def startup_event():
         
     except Exception as e:
         print(f"⚠️  Migration warning: {str(e)}")
-        print("⚠️  Continuing startup (tables may already exist)...")
+        print(f"⚠️  Full error: {traceback.format_exc()}")
+        print("⚠️  Continuing startup (tables may already exist or migration not needed)...")
     
     # 4. Seed default admin user
     print("\n👤 Checking admin user...")

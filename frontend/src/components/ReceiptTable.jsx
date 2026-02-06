@@ -48,6 +48,22 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../api';
 
+// API URL configuration - get from environment or use current origin
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) return envUrl.replace(/\/api$/, ''); // Remove /api suffix if present
+  
+  // In development, use localhost:8000
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8000';
+  }
+  
+  // In production, use current origin
+  return window.location.origin;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
 export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -72,8 +88,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
     // Fallback: Build API URL from receipt ID if image_path is missing
     // but receipt has an ID (shouldn't happen with current backend logic)
     if (receipt.id) {
-      const API_URL = import.meta.env.VITE_API_URL || 'https://necf-treasury-backend.onrender.com';
-      return `${API_URL}/receipts/${receipt.id}/image`;
+      return `${API_BASE_URL}/api/receipts/${receipt.id}/image`;
     }
     
     return null;

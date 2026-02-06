@@ -13,23 +13,21 @@ import os
 pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_CMD", "/usr/bin/tesseract")
 
 
-def extract_receipt_data(image_path: str) -> dict:
+def extract_receipt_data_from_pil_image(pil_image: Image.Image) -> dict:
     """
-    Extract price, date, and time from receipt image using OCR
+    Extract price, date, and time from PIL Image object using OCR
     Returns dict with extracted fields
     """
-    print(f"🔍 OCR: Starting extraction for: {image_path}")
+    print(f"🔍 OCR: Starting extraction from PIL Image")
+    print(f"🔍 OCR: Image size: {pil_image.size}")
     print(f"🔍 OCR: Tesseract path: {pytesseract.pytesseract.tesseract_cmd}")
     
     try:
-        # Open image and run OCR with preprocessing + multiple configs
-        image = Image.open(image_path)
-        print(f"🔍 OCR: Image opened successfully, size: {image.size}")
-        
-        text = run_ocr_with_fallbacks(image)
+        # Run OCR with preprocessing + multiple configs
+        text = run_ocr_with_fallbacks(pil_image)
         print(f"🔍 OCR: Extracted text length: {len(text)}")
         
-        # Extract price (look for currency symbols and numbers)
+        # Extract price
         price = extract_price(text)
         print(f"🔍 OCR: Extracted price: {price}")
         
@@ -47,6 +45,32 @@ def extract_receipt_data(image_path: str) -> dict:
             "ocr_time": time,
             "ocr_raw_text": text
         }
+    except Exception as e:
+        error_details = traceback.format_exc()
+        print(f"❌ OCR Error: {str(e)}")
+        print(f"❌ OCR Error Type: {type(e).__name__}")
+        print(f"❌ Full traceback:\n{error_details}")
+        return {
+            "ocr_price": None,
+            "ocr_date": None,
+            "ocr_time": None,
+            "ocr_raw_text": f"OCR failed: {str(e)}"
+        }
+
+
+def extract_receipt_data(image_path: str) -> dict:
+    """
+    DEPRECATED: Use extract_receipt_data_from_pil_image() instead
+    Kept for backward compatibility with existing code
+    """
+    print(f"🔍 OCR: Starting extraction for: {image_path}")
+    print(f"🔍 OCR: Tesseract path: {pytesseract.pytesseract.tesseract_cmd}")
+    
+    try:
+        # Open image and use the new function
+        image = Image.open(image_path)
+        print(f"🔍 OCR: Image opened successfully, size: {image.size}")
+        return extract_receipt_data_from_pil_image(image)
     except Exception as e:
         error_details = traceback.format_exc()
         print(f"❌ OCR Error: {str(e)}")

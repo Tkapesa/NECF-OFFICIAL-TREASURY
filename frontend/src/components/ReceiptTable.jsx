@@ -62,21 +62,18 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
 
   // Helper function to build image URL
   const getImageUrl = (receipt) => {
-    // Priority 1: Use API endpoint for database-stored images (new receipts)
-    // The backend returns the full API URL in image_path for new receipts
-    if (receipt.image_path && receipt.image_path.includes('/api/receipts/')) {
-      return receipt.image_path;
-    }
-    
-    // Priority 2: Build API URL from receipt ID (for receipts with database images)
-    if (receipt.id) {
-      const API_URL = import.meta.env.VITE_API_URL || 'https://necf-treasury-backend.onrender.com';
-      return `${API_URL}/api/receipts/${receipt.id}/image`;
-    }
-    
-    // Priority 3: Filesystem path (old receipts - backward compatibility)
+    // The backend builds the full image URL and returns it in image_path
+    // For new receipts: /api/receipts/{id}/image (database-stored images)
+    // For old receipts: /uploads/{filename} (filesystem paths)
     if (receipt.image_path) {
       return receipt.image_path;
+    }
+    
+    // Fallback: Build API URL from receipt ID if image_path is missing
+    // but receipt has an ID (shouldn't happen with current backend logic)
+    if (receipt.id) {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://necf-treasury-backend.onrender.com';
+      return `${API_URL}/receipts/${receipt.id}/image`;
     }
     
     return null;

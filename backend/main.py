@@ -70,10 +70,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # File upload configuration
 UPLOAD_DIR_RAW = os.getenv("UPLOAD_DIR", "uploads")
-# Validate upload directory path for security (check before resolving)
-if ".." in UPLOAD_DIR_RAW:
-    raise ValueError(f"Invalid UPLOAD_DIR: Path contains '..' which is not allowed for security reasons")
-UPLOAD_DIR = os.path.abspath(UPLOAD_DIR_RAW)  # Convert to absolute path
+# Validate upload directory path for security
+# Check for path traversal attempts in the raw input
+if ".." in UPLOAD_DIR_RAW or "%2e%2e" in UPLOAD_DIR_RAW.lower():
+    raise ValueError("Invalid UPLOAD_DIR configuration")
+# Normalize and convert to absolute path
+UPLOAD_DIR = os.path.normpath(os.path.abspath(UPLOAD_DIR_RAW))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 print(f"📁 Upload directory: {UPLOAD_DIR}")
 

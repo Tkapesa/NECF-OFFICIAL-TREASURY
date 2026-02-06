@@ -88,6 +88,14 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # Initialize FastAPI app
 app = FastAPI(title="Church Treasury System")
 
+# Create uploads directory for backward compatibility (if using filesystem fallback)
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+print(f"📁 Upload directory: {UPLOAD_DIR}")
+
+# Note: We store images in PostgreSQL database (Base64), not filesystem
+# The uploads directory is only for local development fallback
+
 # CORS middleware for React frontend
 cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()
 
@@ -117,12 +125,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Type", "Authorization"],  # Expose only necessary headers
 )
-
-# Serve uploaded images
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Create uploads folder if not exists
-os.makedirs("uploads", exist_ok=True)
 
 # Initialize database on startup
 @app.on_event("startup")
@@ -209,6 +211,15 @@ def startup_event():
         print(f"✅ Allowing requests from: {', '.join(origins)}")
     else:
         print("⚠️  Using default CORS origins (localhost only)")
+    
+    # 6. Storage configuration
+    print("\n📦 Storage Configuration:")
+    if os.getenv("USE_DATABASE_STORAGE", "true").lower() == "true":
+        print("✅ Using PostgreSQL database for image storage (Neon)")
+        print("✅ Images stored as Base64 in 'image_data' column")
+    else:
+        print(f"⚠️  Using filesystem storage (ephemeral): {UPLOAD_DIR}")
+        print("⚠️  Images will be lost on container restart!")
     
     print("\n" + "=" * 60)
     print("✅ Startup complete! Backend is ready.")

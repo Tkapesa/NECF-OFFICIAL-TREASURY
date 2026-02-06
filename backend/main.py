@@ -88,13 +88,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # Initialize FastAPI app
 app = FastAPI(title="Church Treasury System")
 
-# Create uploads directory for backward compatibility (if using filesystem fallback)
+# Create uploads directory for backward compatibility
+# This directory is created even when using database storage because:
+# 1. Old receipts may still reference filesystem paths (backward compatibility)
+# 2. Local development may use filesystem storage (controlled by USE_DATABASE_STORAGE env var)
+# 3. Creating an empty directory is harmless and avoids potential issues
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 print(f"📁 Upload directory: {UPLOAD_DIR}")
 
-# Note: We store images in PostgreSQL database (Base64), not filesystem
-# The uploads directory is only for local development fallback
+# Note: Images are stored in PostgreSQL database as Base64 by default
+# Filesystem storage is only used when USE_DATABASE_STORAGE=false
 
 # CORS middleware for React frontend
 cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()

@@ -49,9 +49,16 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../api';
 
 // API URL configuration - get from environment or use current origin
+// Expected VITE_API_URL formats:
+//   - With /api: "http://localhost:8000/api" -> returns "http://localhost:8000"
+//   - Without /api: "http://localhost:8000" -> returns "http://localhost:8000"
+//   - Production: "https://example.com/api" -> returns "https://example.com"
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) return envUrl.replace(/\/api$/, ''); // Remove /api suffix if present
+  if (envUrl) {
+    // Remove trailing /api if present, as we'll add it back in getImageUrl
+    return envUrl.replace(/\/api\/?$/, '');
+  }
   
   // In development, use localhost:8000
   if (import.meta.env.DEV) {
@@ -1240,22 +1247,52 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                                   gap: 2,
                                 }}
                               >
-                                <img 
-                                  src={getImageUrl(receipt)} 
-                                  alt={receipt.item_bought}
-                                  style={{ 
-                                    maxWidth: '200px', 
-                                    maxHeight: '200px', 
-                                    borderRadius: '8px',
-                                    border: darkMode ? '1px solid #555' : '1px solid #e0e0e0',
-                                    cursor: 'pointer',
+                                <Box
+                                  sx={{
+                                    display: 'inline-block',
+                                    position: 'relative',
+                                    maxWidth: '200px',
+                                    maxHeight: '200px',
                                   }}
-                                  onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
-                                  onError={(e) => {
-                                    console.error('Failed to load image for receipt', receipt.id);
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
+                                >
+                                  <img 
+                                    src={getImageUrl(receipt)} 
+                                    alt={receipt.item_bought}
+                                    style={{ 
+                                      maxWidth: '200px', 
+                                      maxHeight: '200px', 
+                                      borderRadius: '8px',
+                                      border: darkMode ? '1px solid #555' : '1px solid #e0e0e0',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
+                                    onError={(e) => {
+                                      console.error('Failed to load image for receipt', receipt.id);
+                                      // Replace failed image with a placeholder
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                  />
+                                  <Box
+                                    sx={{
+                                      display: 'none',
+                                      width: '200px',
+                                      height: '150px',
+                                      justifyContent: 'center',
+                                      alignItems: 'center',
+                                      borderRadius: '8px',
+                                      border: darkMode ? '1px solid #555' : '1px solid #e0e0e0',
+                                      bgcolor: darkMode ? '#1a1a1a' : '#f5f5f5',
+                                      flexDirection: 'column',
+                                      gap: 1,
+                                    }}
+                                  >
+                                    <ReceiptLongIcon sx={{ fontSize: 48, color: darkMode ? '#666' : '#999' }} />
+                                    <Typography variant="caption" color="textSecondary">
+                                      Image unavailable
+                                    </Typography>
+                                  </Box>
+                                </Box>
                                 <Button
                                   variant="outlined"
                                   size="small"

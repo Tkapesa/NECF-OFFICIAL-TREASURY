@@ -68,6 +68,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except ValueError:
         return False
 
+# File upload configuration
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+print(f"📁 Upload directory: {UPLOAD_DIR}")
+
 # Initialize FastAPI app
 app = FastAPI(title="Church Treasury System")
 
@@ -102,10 +107,7 @@ app.add_middleware(
 )
 
 # Serve uploaded images
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Create uploads folder if not exists
-os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # Initialize database on startup
 @app.on_event("startup")
@@ -514,7 +516,7 @@ async def upload_receipt(
     # Save uploaded image
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{image.filename}"
-    file_path = f"uploads/{filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
     
     print(f"📸 Saving image to: {file_path}")
     

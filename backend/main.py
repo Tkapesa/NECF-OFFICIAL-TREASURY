@@ -173,6 +173,57 @@ def startup_event():
         print(f"❌ ERROR: Failed to initialize database: {str(e)}")
         print(f"Full error: {traceback.format_exc()}")
     
+    # 3.5 Run database migrations
+    print("\n🔄 Running database migrations...")
+    try:
+        from database import engine
+        from sqlalchemy import text, inspect
+        
+        with engine.connect() as conn:
+            inspector = inspect(engine)
+            
+            # Check if receipts table exists
+            if 'receipts' in inspector.get_table_names():
+                columns = [col['name'] for col in inspector.get_columns('receipts')]
+                
+                migrations_needed = []
+                
+                # Check for image_data column
+                if 'image_data' not in columns:
+                    migrations_needed.append("image_data")
+                    conn.execute(text("ALTER TABLE receipts ADD COLUMN image_data TEXT"))
+                    conn.commit()
+                    print("✅ Added column: image_data (for Base64 image storage)")
+                
+                # Check for image_content_type column
+                if 'image_content_type' not in columns:
+                    migrations_needed.append("image_content_type")
+                    conn.execute(text("ALTER TABLE receipts ADD COLUMN image_content_type VARCHAR"))
+                    conn.commit()
+                    print("✅ Added column: image_content_type (for MIME type)")
+                
+                # Make image_path nullable if it isn't already
+                if 'image_path' in columns:
+                    # PostgreSQL syntax
+                    try:
+                        conn.execute(text("ALTER TABLE receipts ALTER COLUMN image_path DROP NOT NULL"))
+                        conn.commit()
+                        print("✅ Updated column: image_path (now nullable)")
+                    except Exception:
+                        # Column might already be nullable
+                        pass
+                
+                if migrations_needed:
+                    print(f"✅ Database migration complete: Added {len(migrations_needed)} column(s)")
+                else:
+                    print("✅ Database schema is up to date")
+            else:
+                print("✅ Fresh database - all tables created")
+        
+    except Exception as e:
+        print(f"⚠️  Migration warning: {str(e)}")
+        print("⚠️  Continuing startup (tables may already exist)...")
+    
     # 4. Seed default admin user
     print("\n👤 Checking admin user...")
     try:

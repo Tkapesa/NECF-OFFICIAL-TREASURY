@@ -60,6 +60,28 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
   const [expandedRows, setExpandedRows] = useState([]);
   const [imagePreview, setImagePreview] = useState({ open: false, url: '', title: '' });
 
+  // Helper function to build image URL
+  const getImageUrl = (receipt) => {
+    // Priority 1: Use API endpoint for database-stored images (new receipts)
+    // The backend returns the full API URL in image_path for new receipts
+    if (receipt.image_path && receipt.image_path.includes('/api/receipts/')) {
+      return receipt.image_path;
+    }
+    
+    // Priority 2: Build API URL from receipt ID (for receipts with database images)
+    if (receipt.id) {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://necf-treasury-backend.onrender.com';
+      return `${API_URL}/api/receipts/${receipt.id}/image`;
+    }
+    
+    // Priority 3: Filesystem path (old receipts - backward compatibility)
+    if (receipt.image_path) {
+      return receipt.image_path;
+    }
+    
+    return null;
+  };
+
   const handleEdit = (receipt) => {
     setEditingId(receipt.id);
     setEditData({
@@ -249,7 +271,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                 {/* Header with Image and Title */}
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2, gap: 2 }}>
                   <Avatar
-                    src={receipt.image_path}
+                    src={getImageUrl(receipt)}
                     variant="rounded"
                     sx={{
                       width: 60,
@@ -258,7 +280,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                       border: '2px solid #e0e0e0',
                       flexShrink: 0,
                     }}
-                    onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                    onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
                   >
                     <ReceiptLongIcon />
                   </Avatar>
@@ -443,14 +465,14 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                           </Box>
                         </Grid>
                       )}
-                      {receipt.image_path && (
+                      {getImageUrl(receipt) && (
                         <Grid item xs={12}>
                           <Button
                             variant="outlined"
                             size="small"
                             fullWidth
                             startIcon={<ZoomInIcon />}
-                            onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                            onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
                             sx={{ mt: 1 }}
                           >
                             View Receipt Image
@@ -836,7 +858,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                       ) : (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                           <Avatar
-                            src={receipt.image_path}
+                            src={getImageUrl(receipt)}
                             variant="rounded"
                             sx={{ 
                               width: 48, 
@@ -851,7 +873,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                                 borderColor: '#6B1C23',
                               },
                             }}
-                            onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                            onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
                         >
                           <ReceiptLongIcon />
                         </Avatar>
@@ -1184,7 +1206,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                         )}
 
                         {/* Receipt Image */}
-                        {receipt.image_path && (
+                        {getImageUrl(receipt) && (
                           <Box sx={{ mt: 2 }}>
                             <Paper 
                               elevation={0} 
@@ -1207,7 +1229,7 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                                 }}
                               >
                                 <img 
-                                  src={receipt.image_path} 
+                                  src={getImageUrl(receipt)} 
                                   alt={receipt.item_bought}
                                   style={{ 
                                     maxWidth: '200px', 
@@ -1216,13 +1238,17 @@ export default function ReceiptTable({ receipts, onUpdate, darkMode = false }) {
                                     border: darkMode ? '1px solid #555' : '1px solid #e0e0e0',
                                     cursor: 'pointer',
                                   }}
-                                  onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                                  onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
+                                  onError={(e) => {
+                                    console.error('Failed to load image for receipt', receipt.id);
+                                    e.target.style.display = 'none';
+                                  }}
                                 />
                                 <Button
                                   variant="outlined"
                                   size="small"
                                   startIcon={<ZoomInIcon />}
-                                  onClick={() => handleImagePreview(receipt.image_path, receipt.item_bought)}
+                                  onClick={() => handleImagePreview(getImageUrl(receipt), receipt.item_bought)}
                                   sx={{
                                     color: darkMode ? '#fff' : '#d32f2f',
                                     borderColor: darkMode ? '#fff' : '#d32f2f',

@@ -12,7 +12,6 @@ from pydantic import BaseModel
 import shutil
 import os
 import re
-import urllib.parse
 from typing import Optional
 import subprocess
 import traceback
@@ -69,20 +68,20 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except ValueError:
         return False
 
-# File upload configuration
+# File upload configuration - System directories to block
+FORBIDDEN_SYSTEM_DIRS = [os.sep + "etc", os.sep + "root", os.sep + "sys", 
+                         os.sep + "proc", os.sep + "boot", os.sep + "dev"]
+
+# Configure upload directory from environment
 UPLOAD_DIR_RAW = os.getenv("UPLOAD_DIR", "uploads")
 # Validate upload directory path for security
-# Decode URL encoding to catch encoded path traversal attempts
-decoded_path = urllib.parse.unquote(UPLOAD_DIR_RAW)
-# Check for path traversal in decoded path before normalization
-if ".." in decoded_path:
+# Check for path traversal attempts before normalization
+if ".." in UPLOAD_DIR_RAW:
     raise ValueError("Invalid UPLOAD_DIR configuration: path traversal sequences are not allowed")
 # Normalize and convert to absolute path
-UPLOAD_DIR = os.path.abspath(decoded_path)
-# Prevent writing to sensitive system directories (check after normalization)
-forbidden_prefixes = [os.sep + "etc", os.sep + "root", os.sep + "sys", 
-                      os.sep + "proc", os.sep + "boot", os.sep + "dev"]
-if any(UPLOAD_DIR.startswith(prefix) for prefix in forbidden_prefixes):
+UPLOAD_DIR = os.path.abspath(UPLOAD_DIR_RAW)
+# Prevent writing to sensitive system directories
+if any(UPLOAD_DIR.startswith(prefix) for prefix in FORBIDDEN_SYSTEM_DIRS):
     raise ValueError("Invalid UPLOAD_DIR configuration: cannot use system directories")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 print(f"📁 Upload directory: {UPLOAD_DIR}")

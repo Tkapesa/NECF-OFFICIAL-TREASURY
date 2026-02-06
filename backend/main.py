@@ -4,6 +4,7 @@ FastAPI backend for Church Treasury System
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import bcrypt
@@ -15,10 +16,13 @@ import re
 from typing import Optional
 import subprocess
 import traceback
+import base64
+import io
+from PIL import Image as PILImage
 
 from database import get_db, init_db
 from models import Receipt, Admin
-from ocr_utils import extract_receipt_data
+from ocr_utils import extract_receipt_data, extract_receipt_data_from_pil_image
 import pytesseract
 
 # JWT Configuration
@@ -496,6 +500,31 @@ def delete_admin(
 
 # ============ RECEIPT ROUTES ============
 
+def build_image_url(receipt: Receipt, base_url: str) -> str:
+    """
+    Build the appropriate image URL for a receipt.
+    
+    Args:
+        receipt: Receipt object
+        base_url: Base URL from the request
+    
+    Returns:
+        str: Image URL or None if no image available
+    """
+    base = base_url.rstrip('/')
+    
+    # New receipts with database-stored images
+    if receipt.image_data:
+        return f"{base}/api/receipts/{receipt.id}/image"
+    
+    # Old receipts with filesystem paths (backward compatibility)
+    if receipt.image_path:
+        return f"{base}/{receipt.image_path}"
+    
+    # No image available
+    return None
+
+
 @app.post("/api/receipts/upload")
 async def upload_receipt(
     image: UploadFile = File(...),
@@ -505,41 +534,45 @@ async def upload_receipt(
     approved_by: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    """User endpoint to upload receipt"""
+    """User endpoint to upload receipt and store image in database as Base64"""
     
     # Validate file type
     if not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files allowed")
     
-    # Save uploaded image
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{timestamp}_{image.filename}"
-    file_path = f"uploads/{filename}"
+    print(f"📸 Processing image: {image.filename}")
     
-    print(f"📸 Saving image to: {file_path}")
+    # Read image into memory
+    image_bytes = await image.read()
     
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
+    # Convert to Base64 for database storage
+    # NOTE: Base64 encoding increases size by ~33%. For production optimization,
+    # consider implementing image compression before encoding.
+    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
     
-    print(f"✅ Image saved successfully: {file_path}")
+    print(f"✅ Image converted to Base64 (size: {len(image_base64)} chars)")
     print(f"🔍 Running OCR on image...")
     
-    # Run OCR on the image
-    ocr_data = extract_receipt_data(file_path)
+    # Create PIL Image for OCR processing
+    pil_image = PILImage.open(io.BytesIO(image_bytes))
+    
+    # Run OCR on in-memory image
+    ocr_data = extract_receipt_data_from_pil_image(pil_image)
     
     print(f"📊 OCR Results:")
     print(f"   - Price: {ocr_data.get('ocr_price')}")
     print(f"   - Date: {ocr_data.get('ocr_date')}")
     print(f"   - Time: {ocr_data.get('ocr_time')}")
-    print(f"   - Raw text length: {len(ocr_data.get('ocr_raw_text', ''))}")
     
-    # Create receipt record
+    # Create receipt record with Base64 image
     receipt = Receipt(
         user_name=user_name,
         user_phone=user_phone,
         item_bought=item_bought,
         approved_by=approved_by,
-        image_path=file_path,
+        image_data=image_base64,           # Store Base64 in database
+        image_content_type=image.content_type,  # Store MIME type
+        image_path=None,                   # No filesystem path
         **ocr_data
     )
     
@@ -554,6 +587,28 @@ async def upload_receipt(
         "receipt_id": receipt.id,
         "ocr_data": ocr_data
     }
+
+
+@app.get("/api/receipts/{receipt_id}/image")
+def get_receipt_image(receipt_id: int, db: Session = Depends(get_db)):
+    """Retrieve receipt image from database"""
+    
+    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+    
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    
+    if not receipt.image_data:
+        raise HTTPException(status_code=404, detail="No image data found")
+    
+    # Decode Base64 back to binary
+    image_bytes = base64.b64decode(receipt.image_data)
+    
+    # Return image with correct content type
+    return Response(
+        content=image_bytes,
+        media_type=receipt.image_content_type or "image/jpeg"
+    )
 
 
 @app.get("/api/receipts")
@@ -571,6 +626,8 @@ def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: Aut
         
         print(f"📋 Fetched {len(receipts)} receipts from database")
         
+        base_url = str(request.base_url)
+        
         return {
             "receipts": [
                 {
@@ -583,8 +640,7 @@ def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: Aut
                     "ocr_date": r.ocr_date,
                     "ocr_time": r.ocr_time,
                     "ocr_raw_text": r.ocr_raw_text,
-                    # Build absolute image URL dynamically (avoids hardcoded localhost)
-                    "image_path": f"{str(request.base_url).rstrip('/')}/{r.image_path}",
+                    "image_path": build_image_url(r, base_url),
                     "created_at": r.created_at.isoformat()
                 }
                 for r in receipts

@@ -35,8 +35,10 @@ class Receipt(Base):
     ocr_time = Column(String, nullable=True)
     ocr_raw_text = Column(Text, nullable=True)  # Full OCR text for reference
     
-    # Receipt image path
-    image_path = Column(String, nullable=False)
+    # Image storage - UPDATED for database storage
+    image_path = Column(String, nullable=True)  # CHANGE: Made nullable for backward compatibility
+    image_data = Column(Text, nullable=True)     # NEW: Base64-encoded image
+    image_content_type = Column(String, nullable=True)  # NEW: MIME type (e.g., 'image/jpeg')
     
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())

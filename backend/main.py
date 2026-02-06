@@ -1,6 +1,19 @@
 """
 FastAPI backend for Church Treasury System
 """
+import subprocess
+
+try:
+    subprocess.run(
+        ["tesseract", "--version"],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    print("✅ Tesseract OCR installed")
+except Exception:
+    raise RuntimeError("❌ Tesseract OCR NOT installed")
+
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles

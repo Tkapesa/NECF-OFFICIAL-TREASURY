@@ -651,10 +651,7 @@ async def upload_receipt(
                 detail=f"Image size ({len(image_bytes)} bytes) exceeds maximum allowed size ({MAX_UPLOAD_SIZE_MB}MB)"
             )
         
-        # Convert to Base64 for database storage
-        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-        
-        print(f"✅ Image converted to Base64 (size: {len(image_base64)} chars)")
+        print(f"✅ Image loaded and validated")
         print(f"🔍 Running OCR on image...")
         
         # Create PIL Image for OCR processing
@@ -669,7 +666,6 @@ async def upload_receipt(
         print(f"   - Time: {ocr_data.get('ocr_time')}")
         
         # Create receipt record with binary image data
-        # Create receipt record with Base64 image
         receipt = Receipt(
             user_name=user_name,
             user_phone=user_phone,
@@ -677,10 +673,10 @@ async def upload_receipt(
             approved_by=approved_by,
             image_data=image_bytes,  # Store as binary (BYTEA/BLOB)
             image_content_type=image.content_type,
-            image_data=image_base64,
-            image_content_type=image.content_type,
-            image_path=None,
-            **ocr_data
+            ocr_price=ocr_data.get('ocr_price'),
+            ocr_date=ocr_data.get('ocr_date'),
+            ocr_time=ocr_data.get('ocr_time'),
+            ocr_raw_text=ocr_data.get('ocr_raw_text')
         )
         
         db.add(receipt)

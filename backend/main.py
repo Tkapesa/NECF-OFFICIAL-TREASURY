@@ -23,13 +23,11 @@ from datetime import datetime, timedelta
 import bcrypt
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
-import shutil
 import os
 import re
 from typing import Optional
 import subprocess
 import traceback
-import base64
 import io
 from PIL import Image as PILImage
 
@@ -92,17 +90,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # Initialize FastAPI app
 app = FastAPI(title="Church Treasury System")
 
-# Create uploads directory for backward compatibility
-# This directory is created even when using database storage because:
-# 1. Old receipts may still reference filesystem paths (backward compatibility)
-# 2. Local development may use filesystem storage (controlled by USE_DATABASE_STORAGE env var)
-# 3. Creating an empty directory is harmless and avoids potential issues
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-print(f"📁 Upload directory: {UPLOAD_DIR}")
-
-# Note: Images are stored in PostgreSQL database as Base64 by default
-# Filesystem storage is only used when USE_DATABASE_STORAGE=false
+# Note: Images are stored exclusively in PostgreSQL database as binary data (BYTEA)
+# No filesystem storage is used
 
 # CORS middleware for React frontend
 cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()
@@ -194,11 +183,16 @@ def startup_event():
                 
                 migrations_needed = []
                 
-                # Check for image_data column
+                # Check for image_data column - should be BYTEA/LargeBinary
                 if 'image_data' not in column_names:
                     migrations_needed.append("image_data")
-                    conn.execute(text("ALTER TABLE receipts ADD COLUMN image_data TEXT"))
-                    print("✅ Added column: image_data (for Base64 image storage)")
+                    # Use BYTEA for PostgreSQL, BLOB for SQLite
+                    if SQLALCHEMY_DATABASE_URL.startswith("postgresql"):
+                        conn.execute(text("ALTER TABLE receipts ADD COLUMN image_data BYTEA"))
+                        print("✅ Added column: image_data (BYTEA for binary image storage)")
+                    else:
+                        conn.execute(text("ALTER TABLE receipts ADD COLUMN image_data BLOB"))
+                        print("✅ Added column: image_data (BLOB for binary image storage)")
                 
                 # Check for image_content_type column
                 if 'image_content_type' not in column_names:
@@ -206,21 +200,14 @@ def startup_event():
                     conn.execute(text("ALTER TABLE receipts ADD COLUMN image_content_type VARCHAR"))
                     print("✅ Added column: image_content_type (for MIME type)")
                 
-                # Make image_path nullable if it isn't already
+                # Drop image_path column if it exists (no longer needed)
                 if 'image_path' in column_names:
-                    # Check if column is already nullable using pre-fetched column info
                     try:
-                        col_info = next((col for col in columns_info if col['name'] == 'image_path'), None)
-                        if col_info and not col_info.get('nullable', True):
-                            # PostgreSQL syntax to drop NOT NULL constraint
-                            conn.execute(text("ALTER TABLE receipts ALTER COLUMN image_path DROP NOT NULL"))
-                            print("✅ Updated column: image_path (now nullable)")
-                        else:
-                            print("✅ Column image_path is already nullable")
+                        conn.execute(text("ALTER TABLE receipts DROP COLUMN image_path"))
+                        print("✅ Removed column: image_path (filesystem storage no longer used)")
                     except Exception as e:
-                        # Log the error but continue - this might be SQLite or column already nullable
-                        print(f"⚠️  Could not modify image_path constraint: {str(e)}")
-                        print("⚠️  This is expected for SQLite databases or if column is already nullable")
+                        print(f"⚠️  Could not drop image_path column: {str(e)}")
+                        print("⚠️  This is acceptable - column will be ignored")
                 
                 if migrations_needed:
                     print(f"✅ Database migration complete: Added {len(migrations_needed)} column(s)")
@@ -281,10 +268,10 @@ def startup_event():
     print("\n📦 Storage Configuration:")
     if os.getenv("USE_DATABASE_STORAGE", "true").lower() == "true":
         print("✅ Using PostgreSQL database for image storage (Neon)")
-        print("✅ Images stored as Base64 in 'image_data' column")
+        print("✅ Images stored as binary data (BYTEA) in 'image_data' column")
     else:
-        print(f"⚠️  Using filesystem storage (ephemeral): {UPLOAD_DIR}")
-        print("⚠️  Images will be lost on container restart!")
+        print("✅ Using database for image storage")
+        print("✅ Images stored as binary data (BLOB) in 'image_data' column")
     
     print("\n" + "=" * 60)
     print("✅ Startup complete! Backend is ready.")
@@ -489,6 +476,7 @@ def get_admins(db: Session = Depends(get_db), Authorize: AuthJWT = Depends()):
         raise
     except Exception as e:
         print(f"❌ Error fetching admins: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch admins: {str(e)}")
 
 
@@ -502,45 +490,53 @@ def create_admin(
 ):
     """Superuser endpoint to create new admin"""
     
-    # Verify token
-    Authorize.jwt_required()
-    current_username = Authorize.get_jwt_subject()
-    claims = Authorize.get_raw_jwt()
-    
-    # Check if superuser
-    if not claims.get("is_superuser", False):
-        raise HTTPException(status_code=403, detail="Superuser access required")
-    
-    # Check if username already exists
-    existing_admin = db.query(Admin).filter(Admin.username == username).first()
-    if existing_admin:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    # Validate strong password
-    validate_strong_password(password)
-    
-    # Create new admin
-    new_admin = Admin(
-        username=username,
-        hashed_password=hash_password(password),
-        is_superuser=is_superuser
-    )
-    
-    db.add(new_admin)
-    db.commit()
-    db.refresh(new_admin)
-    
-    print(f"✅ New admin created by {current_username}: {username} (Superuser: {is_superuser})")
-    
-    return {
-        "message": "Admin created successfully",
-        "admin": {
-            "id": new_admin.id,
-            "username": new_admin.username,
-            "is_superuser": new_admin.is_superuser,
-            "created_at": new_admin.created_at.isoformat()
+    try:
+        # Verify token
+        Authorize.jwt_required()
+        current_username = Authorize.get_jwt_subject()
+        claims = Authorize.get_raw_jwt()
+        
+        # Check if superuser
+        if not claims.get("is_superuser", False):
+            raise HTTPException(status_code=403, detail="Superuser access required")
+        
+        # Check if username already exists
+        existing_admin = db.query(Admin).filter(Admin.username == username).first()
+        if existing_admin:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Validate strong password
+        validate_strong_password(password)
+        
+        # Create new admin
+        new_admin = Admin(
+            username=username,
+            hashed_password=hash_password(password),
+            is_superuser=is_superuser
+        )
+        
+        db.add(new_admin)
+        db.commit()
+        db.refresh(new_admin)
+        
+        print(f"✅ New admin created by {current_username}: {username} (Superuser: {is_superuser})")
+        
+        return {
+            "message": "Admin created successfully",
+            "admin": {
+                "id": new_admin.id,
+                "username": new_admin.username,
+                "is_superuser": new_admin.is_superuser,
+                "created_at": new_admin.created_at.isoformat()
+            }
         }
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error creating admin: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to create admin: {str(e)}")
 
 
 @app.delete("/api/admins/{admin_id}")
@@ -551,47 +547,55 @@ def delete_admin(
 ):
     """Superuser endpoint to delete an admin"""
     
-    # Verify token
-    Authorize.jwt_required()
-    current_username = Authorize.get_jwt_subject()
-    claims = Authorize.get_raw_jwt()
-    
-    # Check if superuser
-    if not claims.get("is_superuser", False):
-        raise HTTPException(status_code=403, detail="Superuser access required")
-    
-    # Prevent deleting self
-    if claims.get("admin_id") == admin_id:
-        raise HTTPException(status_code=400, detail="Cannot delete your own account")
-    
-    admin = db.query(Admin).filter(Admin.id == admin_id).first()
-    
-    if not admin:
-        raise HTTPException(status_code=404, detail="Admin not found")
-    
-    # Prevent deleting the last superuser
-    if admin.is_superuser:
-        superuser_count = db.query(Admin).filter(Admin.is_superuser == True).count()
-        if superuser_count <= 1:
-            raise HTTPException(status_code=400, detail="Cannot delete the last superuser")
-    
-    username_deleted = admin.username
-    db.delete(admin)
-    db.commit()
-    
-    print(f"✅ Admin deleted by {current_username}: {username_deleted}")
-    
-    return {
-        "message": "Admin deleted successfully",
-        "username": username_deleted
-    }
+    try:
+        # Verify token
+        Authorize.jwt_required()
+        current_username = Authorize.get_jwt_subject()
+        claims = Authorize.get_raw_jwt()
+        
+        # Check if superuser
+        if not claims.get("is_superuser", False):
+            raise HTTPException(status_code=403, detail="Superuser access required")
+        
+        # Prevent deleting self
+        if claims.get("admin_id") == admin_id:
+            raise HTTPException(status_code=400, detail="Cannot delete your own account")
+        
+        admin = db.query(Admin).filter(Admin.id == admin_id).first()
+        
+        if not admin:
+            raise HTTPException(status_code=404, detail="Admin not found")
+        
+        # Prevent deleting the last superuser
+        if admin.is_superuser:
+            superuser_count = db.query(Admin).filter(Admin.is_superuser == True).count()
+            if superuser_count <= 1:
+                raise HTTPException(status_code=400, detail="Cannot delete the last superuser")
+        
+        username_deleted = admin.username
+        db.delete(admin)
+        db.commit()
+        
+        print(f"✅ Admin deleted by {current_username}: {username_deleted}")
+        
+        return {
+            "message": "Admin deleted successfully",
+            "username": username_deleted
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error deleting admin: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to delete admin: {str(e)}")
 
 
 # ============ RECEIPT ROUTES ============
 
 def build_image_url(receipt: Receipt, base_url: str) -> str:
     """
-    Build the appropriate image URL for a receipt.
+    Build the image URL for a receipt.
     
     Args:
         receipt: Receipt object
@@ -602,13 +606,9 @@ def build_image_url(receipt: Receipt, base_url: str) -> str:
     """
     base = base_url.rstrip('/')
     
-    # New receipts with database-stored images
+    # All images are stored in database
     if receipt.image_data:
         return f"{base}/api/receipts/{receipt.id}/image"
-    
-    # Old receipts with filesystem paths (backward compatibility)
-    if receipt.image_path:
-        return f"{base}/{receipt.image_path}"
     
     # No image available
     return None
@@ -623,6 +623,7 @@ async def upload_receipt(
     approved_by: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    """User endpoint to upload receipt and store image in database as binary data"""
     """User endpoint to upload receipt and store image in database as Base64"""
     
     try:
@@ -636,6 +637,14 @@ async def upload_receipt(
         image_bytes = await image.read()
         
         # Validate file size (max 10MB)
+        max_size = 10 * 1024 * 1024  # 10MB
+        if len(image_bytes) > max_size:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Image size ({len(image_bytes)} bytes) exceeds maximum allowed size (10MB)"
+            )
+        
+        print(f"✅ Image loaded ({len(image_bytes)} bytes)")
         if len(image_bytes) > MAX_UPLOAD_SIZE_BYTES:
             raise HTTPException(
                 status_code=400, 
@@ -659,12 +668,15 @@ async def upload_receipt(
         print(f"   - Date: {ocr_data.get('ocr_date')}")
         print(f"   - Time: {ocr_data.get('ocr_time')}")
         
+        # Create receipt record with binary image data
         # Create receipt record with Base64 image
         receipt = Receipt(
             user_name=user_name,
             user_phone=user_phone,
             item_bought=item_bought,
             approved_by=approved_by,
+            image_data=image_bytes,  # Store as binary (BYTEA/BLOB)
+            image_content_type=image.content_type,
             image_data=image_base64,
             image_content_type=image.content_type,
             image_path=None,
@@ -705,17 +717,14 @@ def get_receipt_image(receipt_id: int, db: Session = Depends(get_db)):
     receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
     
     if not receipt:
-        raise HTTPException(status_code=404, detail="Receipt not found")
+        raise HTTPException(status_code=404, detail=f"Receipt with ID {receipt_id} not found")
     
     if not receipt.image_data:
-        raise HTTPException(status_code=404, detail="No image data found")
+        raise HTTPException(status_code=404, detail=f"No image data found for receipt {receipt_id}")
     
-    # Decode Base64 back to binary
-    image_bytes = base64.b64decode(receipt.image_data)
-    
-    # Return image with correct content type
+    # Return binary image data directly
     return Response(
-        content=image_bytes,
+        content=receipt.image_data,
         media_type=receipt.image_content_type or "image/jpeg"
     )
 
@@ -841,6 +850,7 @@ def delete_receipt(
         if not receipt:
             raise HTTPException(status_code=404, detail="Receipt not found")
         
+        # Delete from database (image data is stored in database, no filesystem cleanup needed)
         # Delete the image file if it exists (backward compatibility)
         if receipt.image_path and os.path.exists(receipt.image_path):
             try:
@@ -864,6 +874,7 @@ def delete_receipt(
     except Exception as e:
         db.rollback()
         print(f"❌ Delete failed: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to delete receipt: {str(e)}")
 
 
@@ -889,6 +900,7 @@ def bulk_delete_receipts(
             receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
             
             if receipt:
+                # Delete from database (image data is stored in database, no filesystem cleanup needed)
                 # Delete the image file if it exists (backward compatibility)
                 if receipt.image_path and os.path.exists(receipt.image_path):
                     try:
@@ -919,6 +931,7 @@ def bulk_delete_receipts(
     except Exception as e:
         db.rollback()
         print(f"❌ Bulk delete failed: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to delete receipts: {str(e)}")
 
 

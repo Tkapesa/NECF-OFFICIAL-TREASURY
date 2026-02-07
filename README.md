@@ -652,6 +652,83 @@ When deploying to Render, ensure the **Root Directory** is set correctly:
 
 See [RENDER_ROOT_DIRECTORY_FIX.md](RENDER_ROOT_DIRECTORY_FIX.md) for troubleshooting.
 
+#### Frontend Deployment on Render
+
+**Step 1: Create Static Site Service**
+
+1. Go to Render Dashboard → New → Static Site
+2. Connect your GitHub repository
+3. Configure the service:
+   - **Name:** `necf-frontend` (or your choice)
+   - **Root Directory:** `frontend`
+   - **Build Command:** `npm install && npm run build`
+   - **Publish Directory:** `dist`
+
+**Step 2: Configure Environment Variables**
+
+Add the following environment variable in Render dashboard:
+
+```bash
+VITE_API_URL=https://your-backend-service.onrender.com/api
+```
+
+**Example:**
+```bash
+VITE_API_URL=https://necf-official-treasury-1-dbyt.onrender.com/api
+```
+
+**Step 3: Update Backend CORS**
+
+In your backend `.env` or Render environment variables, add the frontend URL:
+
+```bash
+CORS_ORIGINS=https://your-frontend.onrender.com,https://your-backend.onrender.com
+FRONTEND_URL=https://your-frontend.onrender.com
+```
+
+**Example:**
+```bash
+CORS_ORIGINS=https://necf-1.onrender.com,https://necf-official-treasury-1-dbyt.onrender.com
+FRONTEND_URL=https://necf-1.onrender.com
+```
+
+#### Verifying the Deployment
+
+After deployment, check the browser console to verify the API connection:
+
+1. Open your frontend URL (e.g., `https://necf-1.onrender.com`)
+2. Open browser Developer Tools (F12)
+3. Check the Console tab for these messages:
+   ```
+   [API] Using baseURL: https://necf-official-treasury-1-dbyt.onrender.com/api
+   [API] Environment: production
+   [API] VITE_API_URL from env: https://necf-official-treasury-1-dbyt.onrender.com/api
+   ```
+
+4. Test the connection:
+   - Go to `/admin` and login
+   - Upload a receipt
+   - Check for any CORS or connection errors in console
+
+#### Troubleshooting Deployment Issues
+
+**Issue: "Failed to load admins"**
+- ✅ Verify `VITE_API_URL` is set correctly in Render frontend environment
+- ✅ Check backend CORS allows frontend domain
+- ✅ Ensure backend is deployed and running
+- ✅ Check browser console for API errors
+
+**Issue: CORS errors**
+- ✅ Update backend `CORS_ORIGINS` to include frontend URL
+- ✅ Redeploy backend after updating CORS
+- ✅ Clear browser cache (hard refresh: Ctrl+Shift+R)
+
+**Issue: Wrong API URL in production**
+- ✅ Check `frontend/.env.production` has correct backend URL
+- ✅ Verify Render environment variable `VITE_API_URL` is set
+- ✅ Rebuild and redeploy frontend
+- ✅ Check browser console logs for actual URL being used
+
 ### Additional Production Considerations
 - Use PostgreSQL or MySQL instead of SQLite for better concurrency
 - Implement rate limiting to prevent abuse

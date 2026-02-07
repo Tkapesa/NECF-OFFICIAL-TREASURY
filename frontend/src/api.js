@@ -25,11 +25,13 @@ const api = axios.create({
   baseURL,
 });
 
-// Debug log (will be stripped in production minification but helpful if visible)
-if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.log('[API] Using baseURL:', baseURL);
-}
+// Debug log - always log in production to help troubleshoot connection issues
+// eslint-disable-next-line no-console
+console.log('[API] Using baseURL:', baseURL);
+// eslint-disable-next-line no-console
+console.log('[API] Environment:', import.meta.env.MODE);
+// eslint-disable-next-line no-console
+console.log('[API] VITE_API_URL from env:', import.meta.env.VITE_API_URL || 'not set');
 
 // Add token to requests if available (as Authorization header)
 api.interceptors.request.use((config) => {
@@ -57,16 +59,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Log detailed error information
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error('[API] Error Response:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        url: error.config?.url,
-      });
-    }
+    // Log detailed error information (always log to help with production debugging)
+    // eslint-disable-next-line no-console
+    console.error('[API] Error Response:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+    });
     
     if (error.response?.status === 401 || error.response?.status === 422) {
       // Token expired or invalid - clear it and reload

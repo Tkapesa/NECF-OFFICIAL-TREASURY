@@ -38,6 +38,10 @@ from models import Receipt, Admin
 from ocr_utils import extract_receipt_data, extract_receipt_data_from_pil_image
 import pytesseract
 
+# Configuration Constants
+MAX_UPLOAD_SIZE_MB = 10  # Maximum image upload size in MB
+MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
 # JWT Configuration
 class Settings(BaseModel):
     authjwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production-please")
@@ -621,57 +625,77 @@ async def upload_receipt(
 ):
     """User endpoint to upload receipt and store image in database as Base64"""
     
-    # Validate file type
-    if not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Only image files allowed")
-    
-    print(f"📸 Processing image: {image.filename}")
-    
-    # Read image into memory
-    image_bytes = await image.read()
-    
-    # Convert to Base64 for database storage
-    # NOTE: Base64 encoding increases size by ~33%. For production optimization,
-    # consider implementing image compression before encoding.
-    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-    
-    print(f"✅ Image converted to Base64 (size: {len(image_base64)} chars)")
-    print(f"🔍 Running OCR on image...")
-    
-    # Create PIL Image for OCR processing
-    pil_image = PILImage.open(io.BytesIO(image_bytes))
-    
-    # Run OCR on in-memory image
-    ocr_data = extract_receipt_data_from_pil_image(pil_image)
-    
-    print(f"📊 OCR Results:")
-    print(f"   - Price: {ocr_data.get('ocr_price')}")
-    print(f"   - Date: {ocr_data.get('ocr_date')}")
-    print(f"   - Time: {ocr_data.get('ocr_time')}")
-    
-    # Create receipt record with Base64 image
-    receipt = Receipt(
-        user_name=user_name,
-        user_phone=user_phone,
-        item_bought=item_bought,
-        approved_by=approved_by,
-        image_data=image_base64,           # Store Base64 in database
-        image_content_type=image.content_type,  # Store MIME type
-        image_path=None,                   # No filesystem path
-        **ocr_data
-    )
-    
-    db.add(receipt)
-    db.commit()
-    db.refresh(receipt)
-    
-    print(f"💾 Receipt saved to database with ID: {receipt.id}")
-    
-    return {
-        "message": "Receipt uploaded successfully",
-        "receipt_id": receipt.id,
-        "ocr_data": ocr_data
-    }
+    try:
+        # Validate file type
+        if not image.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Only image files allowed")
+        
+        print(f"📸 Processing image: {image.filename}")
+        
+        # Read image into memory
+        image_bytes = await image.read()
+        
+        # Validate file size (max 10MB)
+        if len(image_bytes) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Image size ({len(image_bytes)} bytes) exceeds maximum allowed size ({MAX_UPLOAD_SIZE_MB}MB)"
+            )
+        
+        # Convert to Base64 for database storage
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        print(f"✅ Image converted to Base64 (size: {len(image_base64)} chars)")
+        print(f"🔍 Running OCR on image...")
+        
+        # Create PIL Image for OCR processing
+        pil_image = PILImage.open(io.BytesIO(image_bytes))
+        
+        # Run OCR on in-memory image
+        ocr_data = extract_receipt_data_from_pil_image(pil_image)
+        
+        print(f"📊 OCR Results:")
+        print(f"   - Price: {ocr_data.get('ocr_price')}")
+        print(f"   - Date: {ocr_data.get('ocr_date')}")
+        print(f"   - Time: {ocr_data.get('ocr_time')}")
+        
+        # Create receipt record with Base64 image
+        receipt = Receipt(
+            user_name=user_name,
+            user_phone=user_phone,
+            item_bought=item_bought,
+            approved_by=approved_by,
+            image_data=image_base64,
+            image_content_type=image.content_type,
+            image_path=None,
+            **ocr_data
+        )
+        
+        db.add(receipt)
+        db.commit()
+        db.refresh(receipt)
+        
+        print(f"💾 Receipt saved to database with ID: {receipt.id}")
+        
+        return {
+            "message": "Receipt uploaded successfully",
+            "receipt_id": receipt.id,
+            "ocr_data": ocr_data,
+            "created_at": receipt.created_at.isoformat(),
+            "updated_at": receipt.updated_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Rollback on any error
+        db.rollback()
+        print(f"❌ Upload failed: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to upload receipt: {str(e)}"
+        )
 
 
 @app.get("/api/receipts/{receipt_id}/image")
@@ -726,7 +750,8 @@ def get_receipts(request: Request, db: Session = Depends(get_db), Authorize: Aut
                     "ocr_time": r.ocr_time,
                     "ocr_raw_text": r.ocr_raw_text,
                     "image_path": build_image_url(r, base_url),
-                    "created_at": r.created_at.isoformat()
+                    "created_at": r.created_at.isoformat(),
+                    "updated_at": r.updated_at.isoformat()
                 }
                 for r in receipts
             ]
@@ -807,29 +832,39 @@ def delete_receipt(
 ):
     """Admin endpoint to delete a single receipt"""
     
-    # Verify admin token
-    Authorize.jwt_required()
-    
-    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
-    
-    if not receipt:
-        raise HTTPException(status_code=404, detail="Receipt not found")
-    
-    # Delete the image file if it exists
-    if receipt.image_path and os.path.exists(receipt.image_path):
-        try:
-            os.remove(receipt.image_path)
-        except Exception as e:
-            print(f"Error deleting image file: {e}")
-    
-    # Delete from database
-    db.delete(receipt)
-    db.commit()
-    
-    return {
-        "message": "Receipt deleted successfully",
-        "id": receipt_id
-    }
+    try:
+        # Verify admin token
+        Authorize.jwt_required()
+        
+        receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+        
+        if not receipt:
+            raise HTTPException(status_code=404, detail="Receipt not found")
+        
+        # Delete the image file if it exists (backward compatibility)
+        if receipt.image_path and os.path.exists(receipt.image_path):
+            try:
+                os.remove(receipt.image_path)
+                print(f"🗑️ Deleted image file: {receipt.image_path}")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not delete image file: {e}")
+        
+        # Delete from database
+        db.delete(receipt)
+        db.commit()
+        
+        print(f"✅ Receipt {receipt_id} deleted successfully")
+        
+        return {
+            "message": "Receipt deleted successfully",
+            "id": receipt_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Delete failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete receipt: {str(e)}")
 
 
 @app.post("/api/receipts/bulk-delete")
@@ -840,39 +875,51 @@ def bulk_delete_receipts(
 ):
     """Admin endpoint to delete multiple receipts"""
     
-    # Verify admin token
-    Authorize.jwt_required()
-    
-    if not receipt_ids:
-        raise HTTPException(status_code=400, detail="No receipt IDs provided")
-    
-    deleted_count = 0
-    errors = []
-    
-    for receipt_id in receipt_ids:
-        receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+    try:
+        # Verify admin token
+        Authorize.jwt_required()
         
-        if receipt:
-            # Delete the image file if it exists
-            if receipt.image_path and os.path.exists(receipt.image_path):
-                try:
-                    os.remove(receipt.image_path)
-                except Exception as e:
-                    errors.append(f"Error deleting image for receipt {receipt_id}: {e}")
+        if not receipt_ids:
+            raise HTTPException(status_code=400, detail="No receipt IDs provided")
+        
+        deleted_count = 0
+        errors = []
+        
+        for receipt_id in receipt_ids:
+            receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
             
-            # Delete from database
-            db.delete(receipt)
-            deleted_count += 1
-        else:
-            errors.append(f"Receipt {receipt_id} not found")
-    
-    db.commit()
-    
-    return {
-        "message": f"Deleted {deleted_count} receipt(s) successfully",
-        "deleted_count": deleted_count,
-        "errors": errors if errors else None
-    }
+            if receipt:
+                # Delete the image file if it exists (backward compatibility)
+                if receipt.image_path and os.path.exists(receipt.image_path):
+                    try:
+                        os.remove(receipt.image_path)
+                    except Exception as e:
+                        errors.append(f"Warning: Could not delete image for receipt {receipt_id}: {e}")
+                
+                # Delete from database
+                db.delete(receipt)
+                deleted_count += 1
+            else:
+                errors.append(f"Receipt {receipt_id} not found")
+        
+        # Commit all deletes at once
+        db.commit()
+        
+        print(f"✅ Bulk delete completed: {deleted_count} receipt(s) deleted")
+        
+        return {
+            "message": f"Deleted {deleted_count} receipt(s) successfully",
+            "deleted_count": deleted_count,
+            "total_requested": len(receipt_ids),
+            "errors": errors if errors else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Bulk delete failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete receipts: {str(e)}")
 
 
 # ============ FRONTEND STATIC (OPTIONAL) ============

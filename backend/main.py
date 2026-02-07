@@ -36,6 +36,10 @@ from models import Receipt, Admin
 from ocr_utils import extract_receipt_data, extract_receipt_data_from_pil_image
 import pytesseract
 
+# Configuration Constants
+MAX_UPLOAD_SIZE_MB = 10  # Maximum image upload size in MB
+MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
 # JWT Configuration
 class Settings(BaseModel):
     authjwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production-please")
@@ -620,6 +624,7 @@ async def upload_receipt(
     db: Session = Depends(get_db)
 ):
     """User endpoint to upload receipt and store image in database as binary data"""
+    """User endpoint to upload receipt and store image in database as Base64"""
     
     try:
         # Validate file type
@@ -640,6 +645,16 @@ async def upload_receipt(
             )
         
         print(f"✅ Image loaded ({len(image_bytes)} bytes)")
+        if len(image_bytes) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Image size ({len(image_bytes)} bytes) exceeds maximum allowed size ({MAX_UPLOAD_SIZE_MB}MB)"
+            )
+        
+        # Convert to Base64 for database storage
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        print(f"✅ Image converted to Base64 (size: {len(image_base64)} chars)")
         print(f"🔍 Running OCR on image...")
         
         # Create PIL Image for OCR processing
@@ -654,6 +669,7 @@ async def upload_receipt(
         print(f"   - Time: {ocr_data.get('ocr_time')}")
         
         # Create receipt record with binary image data
+        # Create receipt record with Base64 image
         receipt = Receipt(
             user_name=user_name,
             user_phone=user_phone,
@@ -661,6 +677,9 @@ async def upload_receipt(
             approved_by=approved_by,
             image_data=image_bytes,  # Store as binary (BYTEA/BLOB)
             image_content_type=image.content_type,
+            image_data=image_base64,
+            image_content_type=image.content_type,
+            image_path=None,
             **ocr_data
         )
         
@@ -832,6 +851,15 @@ def delete_receipt(
             raise HTTPException(status_code=404, detail="Receipt not found")
         
         # Delete from database (image data is stored in database, no filesystem cleanup needed)
+        # Delete the image file if it exists (backward compatibility)
+        if receipt.image_path and os.path.exists(receipt.image_path):
+            try:
+                os.remove(receipt.image_path)
+                print(f"🗑️ Deleted image file: {receipt.image_path}")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not delete image file: {e}")
+        
+        # Delete from database
         db.delete(receipt)
         db.commit()
         
@@ -873,6 +901,14 @@ def bulk_delete_receipts(
             
             if receipt:
                 # Delete from database (image data is stored in database, no filesystem cleanup needed)
+                # Delete the image file if it exists (backward compatibility)
+                if receipt.image_path and os.path.exists(receipt.image_path):
+                    try:
+                        os.remove(receipt.image_path)
+                    except Exception as e:
+                        errors.append(f"Warning: Could not delete image for receipt {receipt_id}: {e}")
+                
+                # Delete from database
                 db.delete(receipt)
                 deleted_count += 1
             else:

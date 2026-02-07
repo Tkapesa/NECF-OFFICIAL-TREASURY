@@ -1,7 +1,7 @@
 """
 Database models for Church Treasury System
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, LargeBinary
 from sqlalchemy.sql import func
 from database import Base
 
@@ -35,10 +35,9 @@ class Receipt(Base):
     ocr_time = Column(String, nullable=True)
     ocr_raw_text = Column(Text, nullable=True)  # Full OCR text for reference
     
-    # Image storage - UPDATED for database storage
-    image_path = Column(String, nullable=True)  # CHANGE: Made nullable for backward compatibility
-    image_data = Column(Text, nullable=True)     # NEW: Base64-encoded image
-    image_content_type = Column(String, nullable=True)  # NEW: MIME type (e.g., 'image/jpeg')
+    # Image storage - Database only (no filesystem)
+    image_data = Column(LargeBinary, nullable=True)     # Binary image data (BYTEA in PostgreSQL)
+    image_content_type = Column(String, nullable=True)  # MIME type (e.g., 'image/jpeg')
     
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())

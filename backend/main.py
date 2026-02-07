@@ -485,7 +485,6 @@ def get_admins(db: Session = Depends(get_db), Authorize: AuthJWT = Depends()):
         raise
     except Exception as e:
         print(f"❌ Error fetching admins: {str(e)}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch admins: {str(e)}")
 
@@ -545,7 +544,6 @@ def create_admin(
     except Exception as e:
         db.rollback()
         print(f"❌ Error creating admin: {str(e)}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to create admin: {str(e)}")
 
@@ -598,7 +596,6 @@ def delete_admin(
     except Exception as e:
         db.rollback()
         print(f"❌ Error deleting admin: {str(e)}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to delete admin: {str(e)}")
 
@@ -708,7 +705,6 @@ async def upload_receipt(
         # Rollback on any error
         db.rollback()
         print(f"❌ Upload failed: {str(e)}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(
             status_code=500, 
@@ -882,7 +878,6 @@ def delete_receipt(
     except Exception as e:
         db.rollback()
         print(f"❌ Delete failed: {str(e)}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to delete receipt: {str(e)}")
 
@@ -939,7 +934,6 @@ def bulk_delete_receipts(
     except Exception as e:
         db.rollback()
         print(f"❌ Bulk delete failed: {str(e)}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to delete receipts: {str(e)}")
 

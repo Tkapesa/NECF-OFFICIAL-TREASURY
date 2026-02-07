@@ -38,6 +38,10 @@ from models import Receipt, Admin
 from ocr_utils import extract_receipt_data, extract_receipt_data_from_pil_image
 import pytesseract
 
+# Configuration Constants
+MAX_UPLOAD_SIZE_MB = 10  # Maximum image upload size in MB
+MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
 # JWT Configuration
 class Settings(BaseModel):
     authjwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production-please")
@@ -632,11 +636,10 @@ async def upload_receipt(
         image_bytes = await image.read()
         
         # Validate file size (max 10MB)
-        max_size = 10 * 1024 * 1024  # 10MB
-        if len(image_bytes) > max_size:
+        if len(image_bytes) > MAX_UPLOAD_SIZE_BYTES:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Image size ({len(image_bytes)} bytes) exceeds maximum allowed size (10MB)"
+                detail=f"Image size ({len(image_bytes)} bytes) exceeds maximum allowed size ({MAX_UPLOAD_SIZE_MB}MB)"
             )
         
         # Convert to Base64 for database storage
@@ -688,7 +691,6 @@ async def upload_receipt(
         # Rollback on any error
         db.rollback()
         print(f"❌ Upload failed: {str(e)}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(
             status_code=500, 

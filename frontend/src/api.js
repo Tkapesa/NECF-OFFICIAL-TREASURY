@@ -26,6 +26,8 @@ const api = axios.create({
 });
 
 // Debug log - always log in production to help troubleshoot connection issues
+// Note: These logs are intentionally kept in production to help diagnose API connection issues.
+// The API URL is not sensitive information (it's publicly accessible and used in CORS).
 // eslint-disable-next-line no-console
 console.log('[API] Using baseURL:', baseURL);
 // eslint-disable-next-line no-console

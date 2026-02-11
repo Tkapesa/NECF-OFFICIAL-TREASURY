@@ -30,8 +30,9 @@ COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
 ENV SERVE_FRONTEND=1
 ENV FRONTEND_DIST=/app/frontend/dist
-ENV PORT=8000
 
 WORKDIR /app/backend
 
-CMD ["bash", "-lc", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+EXPOSE 8000
+
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}

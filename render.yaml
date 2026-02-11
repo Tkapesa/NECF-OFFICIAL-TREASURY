@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: necf-treasury
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    region: oregon
+    
+    # Health check endpoint
+    healthCheckPath: /
+    
+    # Environment variables
+    envVars:
+      # Database Configuration
+      # IMPORTANT: Add your Neon PostgreSQL connection URL in Render dashboard
+      # Use the POOLED connection with: ?sslmode=require&channel_binding=require
+      - key: DATABASE_URL
+        sync: false
+      
+      # JWT Secret (auto-generated secure key)
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      
+      # Server Configuration
+      - key: PORT
+        value: 8000
+      
+      - key: SERVE_FRONTEND
+        value: 1
+      
+      # CORS Configuration
+      # IMPORTANT: Set to your domain(s) for production
+      # Example: https://yourdomain.com,https://www.yourdomain.com
+      # Using "*" allows all origins - only for development/testing
+      - key: CORS_ORIGINS
+        sync: false
+      
+      # Admin Defaults
+      # IMPORTANT: Change these immediately after first login!
+      # Or set secure values in Render dashboard
+      - key: DEFAULT_ADMIN_USERNAME
+        value: admin
+      
+      - key: DEFAULT_ADMIN_PASSWORD
+        generateValue: true
+      
+      # JWT Token Expiration (24 hours in minutes)
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440

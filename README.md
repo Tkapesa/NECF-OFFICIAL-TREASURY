@@ -634,6 +634,24 @@ gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bin
 - Frontend: S3 + CloudFront
 - Database: RDS PostgreSQL (not SQLite)
 
+### Render Configuration
+
+**CRITICAL: Root Directory Setting**
+
+When deploying to Render, ensure the **Root Directory** is set correctly:
+
+```
+✅ Root Directory: backend
+```
+
+**Common Mistakes:**
+- ❌ `backend/aptfile` (this is a file, not a directory)
+- ❌ Empty (Render won't find aptfile)
+
+**Verify:** Check that `render.yaml` has `rootDir: backend` uncommented.
+
+See [RENDER_ROOT_DIRECTORY_FIX.md](RENDER_ROOT_DIRECTORY_FIX.md) for troubleshooting.
+
 ### Additional Production Considerations
 - Use PostgreSQL or MySQL instead of SQLite for better concurrency
 - Implement rate limiting to prevent abuse

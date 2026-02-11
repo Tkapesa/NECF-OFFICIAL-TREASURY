@@ -2,9 +2,15 @@
 OCR utilities using pytesseract
 """
 import re
+import traceback
 from datetime import datetime
 from PIL import Image, ImageOps, ImageFilter
 import pytesseract
+import os
+
+# CRITICAL: Set Tesseract path for Render deployment
+# Allow override via environment variable for flexibility
+pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_CMD", "/usr/bin/tesseract")
 
 
 def extract_receipt_data(image_path: str) -> dict:
@@ -12,19 +18,28 @@ def extract_receipt_data(image_path: str) -> dict:
     Extract price, date, and time from receipt image using OCR
     Returns dict with extracted fields
     """
+    print(f"🔍 OCR: Starting extraction for: {image_path}")
+    print(f"🔍 OCR: Tesseract path: {pytesseract.pytesseract.tesseract_cmd}")
+    
     try:
         # Open image and run OCR with preprocessing + multiple configs
         image = Image.open(image_path)
+        print(f"🔍 OCR: Image opened successfully, size: {image.size}")
+        
         text = run_ocr_with_fallbacks(image)
+        print(f"🔍 OCR: Extracted text length: {len(text)}")
         
         # Extract price (look for currency symbols and numbers)
         price = extract_price(text)
+        print(f"🔍 OCR: Extracted price: {price}")
         
         # Extract date
         date = extract_date(text)
+        print(f"🔍 OCR: Extracted date: {date}")
         
         # Extract time
         time = extract_time(text)
+        print(f"🔍 OCR: Extracted time: {time}")
         
         return {
             "ocr_price": price,
@@ -33,7 +48,10 @@ def extract_receipt_data(image_path: str) -> dict:
             "ocr_raw_text": text
         }
     except Exception as e:
-        print(f"OCR Error: {str(e)}")
+        error_details = traceback.format_exc()
+        print(f"❌ OCR Error: {str(e)}")
+        print(f"❌ OCR Error Type: {type(e).__name__}")
+        print(f"❌ Full traceback:\n{error_details}")
         return {
             "ocr_price": None,
             "ocr_date": None,

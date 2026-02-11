@@ -2,6 +2,19 @@
 
 This checklist ensures OCR and backend are correctly deployed for https://necftreausry.com.
 
+## ⚠️ CRITICAL: Verify Root Directory Configuration FIRST
+
+**Before anything else, check your Render dashboard:**
+
+1. Go to: Dashboard → Your Service → Settings
+2. Find: **Root Directory** field
+3. Must be set to: `backend` (NOT `backend/aptfile`, NOT empty)
+4. If wrong: Edit, change to `backend`, save, wait for redeploy
+
+**Why this matters:** Render only reads `aptfile` from the directory specified in Root Directory. If it's wrong, Tesseract won't install, and OCR will fail.
+
+---
+
 ## Step-by-step for Mitchel (hosting only)
 Follow these steps in order. Skipping any step can break OCR or stop receipts from showing.
 

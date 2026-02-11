@@ -13,10 +13,13 @@ import shutil
 import os
 import re
 from typing import Optional
+import subprocess
+import traceback
 
 from database import get_db, init_db
 from models import Receipt, Admin
 from ocr_utils import extract_receipt_data
+import pytesseract
 
 # JWT Configuration
 class Settings(BaseModel):
@@ -65,27 +68,50 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except ValueError:
         return False
 
+# File upload configuration - System directories to block
+FORBIDDEN_SYSTEM_DIRS = [os.sep + "etc" + os.sep, os.sep + "root" + os.sep, 
+                         os.sep + "sys" + os.sep, os.sep + "proc" + os.sep, 
+                         os.sep + "boot" + os.sep, os.sep + "dev" + os.sep]
+
+# Configure upload directory from environment
+UPLOAD_DIR_RAW = os.getenv("UPLOAD_DIR", "uploads")
+# Validate upload directory path for security
+# Check for path traversal attempts before normalization
+if ".." in UPLOAD_DIR_RAW:
+    raise ValueError("Invalid UPLOAD_DIR configuration: path traversal sequences are not allowed")
+# Normalize and convert to absolute path
+UPLOAD_DIR = os.path.abspath(UPLOAD_DIR_RAW)
+# Prevent writing to sensitive system directories
+# Add trailing separator to UPLOAD_DIR for exact matching
+upload_dir_check = UPLOAD_DIR + os.sep
+if any(upload_dir_check.startswith(prefix) for prefix in FORBIDDEN_SYSTEM_DIRS):
+    raise ValueError("Invalid UPLOAD_DIR configuration: cannot use system directories")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+print(f"📁 Upload directory: {UPLOAD_DIR}")
+
 # Initialize FastAPI app
 app = FastAPI(title="Church Treasury System")
 
 # CORS middleware for React frontend
-# CORS origins (comma-separated list or "*")
 cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()
+
 if cors_origins_env:
     if cors_origins_env == "*":
         allow_origins = ["*"]
+        print("⚠️  WARNING: CORS set to allow ALL origins (*) - not recommended for production!")
     else:
         allow_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+        print(f"🔒 CORS restricted to: {', '.join(allow_origins)}")
 else:
+    # Default fallback origins
     allow_origins = [
-        "http://localhost:5173",  # Vite default port
-        "http://localhost:5174",  # Vite alternate port
-        "http://localhost:5175",  # Vite alternate port
-        "https://necftreausry.com",  # Production domain (HTTPS)
-        "http://necftreausry.com",   # Production domain (HTTP fallback)
-        "https://www.necftreausry.com",  # Production with www
-        "http://www.necftreausry.com",   # Production with www (HTTP fallback)
+        "http://localhost:5173",
+        "http://localhost:5174", 
+        "http://localhost:5175",
+        "https://necftreausry.com",
+        "https://www.necftreausry.com",
     ]
+    print("⚠️  CORS_ORIGINS not set - using default localhost + production domains")
 
 app.add_middleware(
     CORSMiddleware,
@@ -93,35 +119,101 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Type", "Authorization"],  # Expose only necessary headers
 )
 
 # Serve uploaded images
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Create uploads folder if not exists
-os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # Initialize database on startup
 @app.on_event("startup")
 def startup_event():
-    init_db()
-    # Create default superuser admin (username: admin, password: admin123)
-    db = next(get_db())
-    existing_admin = db.query(Admin).filter(Admin.username == "admin").first()
-    if not existing_admin:
-        admin = Admin(
-            username="admin",
-            hashed_password=hash_password("admin123"),
-            is_superuser=True  # Make default admin a superuser
-        )
-        db.add(admin)
-        db.commit()
-        print("✅ Default SUPERUSER admin created: username=admin, password=admin123")
-    elif not existing_admin.is_superuser:
-        # Upgrade existing admin to superuser
-        existing_admin.is_superuser = True
-        db.commit()
-        print("✅ Existing admin upgraded to SUPERUSER")
+    """Initialize database and perform startup checks"""
+    print("=" * 60)
+    print("🚀 NECF Treasury Backend Starting Up...")
+    print("=" * 60)
+    
+    # 1. Validate critical environment variables
+    print("\n📋 Checking environment variables...")
+    required_vars = {
+        "DATABASE_URL": os.getenv("DATABASE_URL"),
+        "JWT_SECRET_KEY": os.getenv("JWT_SECRET_KEY"),
+        "DEFAULT_ADMIN_PASSWORD": os.getenv("DEFAULT_ADMIN_PASSWORD")
+    }
+    
+    missing_vars = [key for key, value in required_vars.items() if not value]
+    if missing_vars:
+        print(f"❌ ERROR: Missing required environment variables: {', '.join(missing_vars)}")
+        print("⚠️  Backend will start but functionality may be limited!")
+    else:
+        print("✅ All required environment variables are set")
+    
+    # 2. Check database connection
+    print("\n🔌 Connecting to database...")
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./treasury.db")
+    
+    if db_url.startswith("postgresql://"):
+        print(f"✅ Using PostgreSQL database")
+    elif db_url.startswith("sqlite://"):
+        print(f"⚠️  WARNING: Using SQLite (data will be lost on restart!)")
+    else:
+        print(f"⚠️  WARNING: Unknown database type: {db_url[:20]}...")
+    
+    # 3. Initialize database tables
+    print("\n📊 Initializing database tables...")
+    try:
+        init_db()
+        print("✅ Database tables initialized successfully")
+    except Exception as e:
+        print(f"❌ ERROR: Failed to initialize database: {str(e)}")
+        print(f"Full error: {traceback.format_exc()}")
+    
+    # 4. Seed default admin user
+    print("\n👤 Checking admin user...")
+    try:
+        db = next(get_db())
+        admin_username = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
+        admin = db.query(Admin).filter(Admin.username == admin_username).first()
+        
+        if not admin:
+            admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD")
+            if admin_password:
+                hashed_password = hash_password(admin_password)
+                new_admin = Admin(
+                    username=admin_username,
+                    hashed_password=hashed_password,
+                    is_superuser=True
+                )
+                db.add(new_admin)
+                db.commit()
+                print(f"✅ Created default admin user: {admin_username}")
+            else:
+                print("⚠️  WARNING: DEFAULT_ADMIN_PASSWORD not set - admin user not created!")
+        else:
+            print(f"✅ Admin user exists: {admin_username}")
+            # Ensure admin is superuser
+            if not admin.is_superuser:
+                admin.is_superuser = True
+                db.commit()
+                print(f"✅ Upgraded admin user to superuser: {admin_username}")
+        
+        db.close()
+    except Exception as e:
+        print(f"❌ ERROR: Failed to check/create admin user: {str(e)}")
+        print(f"Full error: {traceback.format_exc()}")
+    
+    # 5. Display CORS configuration
+    print("\n🌐 CORS Configuration:")
+    cors_origins = os.getenv("CORS_ORIGINS", "").strip()
+    if cors_origins:
+        origins = [o.strip() for o in cors_origins.split(",")]
+        print(f"✅ Allowing requests from: {', '.join(origins)}")
+    else:
+        print("⚠️  Using default CORS origins (localhost only)")
+    
+    print("\n" + "=" * 60)
+    print("✅ Startup complete! Backend is ready.")
+    print("=" * 60)
 
 
 # ============ AUTH UTILITIES ============
@@ -177,6 +269,74 @@ def validate_strong_password(password: str) -> bool:
 def root():
     """Health check"""
     return {"message": "Church Treasury System API", "status": "running"}
+
+
+@app.get("/api/health")
+async def health_check(db: Session = Depends(get_db)):
+    """
+    Health check endpoint - verifies database connection and service status
+    """
+    try:
+        # Try to query the database - using simple query for performance
+        admin_count = db.query(Admin).count()
+        receipt_count = db.query(Receipt).count()
+        
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "tables": {
+                "admins": admin_count,
+                "receipts": receipt_count
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        # Log the full error server-side for debugging
+        print(f"❌ Health check failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return generic error to client
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": "Database connection failed",
+            "timestamp": datetime.now().isoformat()
+        }
+
+
+@app.get("/api/debug/tesseract")
+async def check_tesseract():
+    """Debug endpoint to verify Tesseract installation - PUBLIC ACCESS"""
+    import subprocess
+    
+    try:
+        result = subprocess.run(
+            ["tesseract", "--version"], 
+            capture_output=True, 
+            text=True,
+            timeout=5
+        )
+        return {
+            "tesseract_installed": True,
+            "version": result.stdout,
+            "stderr": result.stderr,
+            "path": "/usr/bin/tesseract",
+            "pytesseract_cmd": pytesseract.pytesseract.tesseract_cmd
+        }
+    except FileNotFoundError:
+        return {
+            "tesseract_installed": False,
+            "error": "Tesseract binary not found",
+            "searched_path": "/usr/bin/tesseract",
+            "pytesseract_cmd": pytesseract.pytesseract.tesseract_cmd
+        }
+    except Exception as e:
+        return {
+            "tesseract_installed": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
 
 
 @app.post("/api/login")
@@ -372,13 +532,24 @@ async def upload_receipt(
     # Save uploaded image
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{image.filename}"
-    file_path = f"uploads/{filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    print(f"📸 Saving image to: {file_path}")
     
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(image.file, buffer)
     
+    print(f"✅ Image saved successfully: {file_path}")
+    print(f"🔍 Running OCR on image...")
+    
     # Run OCR on the image
     ocr_data = extract_receipt_data(file_path)
+    
+    print(f"📊 OCR Results:")
+    print(f"   - Price: {ocr_data.get('ocr_price')}")
+    print(f"   - Date: {ocr_data.get('ocr_date')}")
+    print(f"   - Time: {ocr_data.get('ocr_time')}")
+    print(f"   - Raw text length: {len(ocr_data.get('ocr_raw_text', ''))}")
     
     # Create receipt record
     receipt = Receipt(
@@ -393,6 +564,8 @@ async def upload_receipt(
     db.add(receipt)
     db.commit()
     db.refresh(receipt)
+    
+    print(f"💾 Receipt saved to database with ID: {receipt.id}")
     
     return {
         "message": "Receipt uploaded successfully",

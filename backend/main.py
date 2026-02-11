@@ -31,7 +31,7 @@ import traceback
 import io
 from PIL import Image as PILImage
 
-from database import get_db, init_db
+from database import get_db, init_db, SQLALCHEMY_DATABASE_URL
 from models import Receipt, Admin
 from ocr_utils import extract_receipt_data, extract_receipt_data_from_pil_image
 import pytesseract

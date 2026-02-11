@@ -63,16 +63,20 @@ This repository includes a `render.yaml` blueprint for easy deployment.
 
 2. **Configure Environment Variables**
    - Render will show all environment variables defined in `render.yaml`
-   - **Set the DATABASE_URL**:
+   - **Required: Set the DATABASE_URL**:
      - Click on `DATABASE_URL`
      - Paste your Neon PostgreSQL connection string (with `channel_binding=require`)
-   - All other variables are pre-configured:
+   - **Required: Set CORS_ORIGINS**:
+     - For production: Use your domain(s), e.g., `https://yourdomain.com`
+     - For testing only: Use `*` to allow all origins
+   - **Optional: View DEFAULT_ADMIN_PASSWORD**:
+     - Auto-generated secure password (save this!)
+     - Or set your own strong password
+   - Other variables are pre-configured:
      - `JWT_SECRET_KEY`: Auto-generated secure key ✅
      - `PORT`: 8000 ✅
      - `SERVE_FRONTEND`: 1 ✅
-     - `CORS_ORIGINS`: * (allows all origins) ⚠️
      - `DEFAULT_ADMIN_USERNAME`: admin
-     - `DEFAULT_ADMIN_PASSWORD`: admin123
 
 3. **Deploy**
    - Click **"Apply"**
@@ -104,10 +108,10 @@ If you prefer manual setup:
    | `JWT_SECRET_KEY` | Generate using: `openssl rand -hex 32` | **Required** - Use a strong random key |
    | `PORT` | `8000` | Required for Render |
    | `SERVE_FRONTEND` | `1` | Required to serve React frontend |
-   | `CORS_ORIGINS` | `*` | Or your specific domain(s) |
+   | `CORS_ORIGINS` | `https://yourdomain.com` | **Production**: Use your domain(s). **Testing only**: `*` |
    | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | 24 hours |
    | `DEFAULT_ADMIN_USERNAME` | `admin` | Optional - default admin username |
-   | `DEFAULT_ADMIN_PASSWORD` | `admin123` | Optional - default admin password |
+   | `DEFAULT_ADMIN_PASSWORD` | Strong password | **Required** - Use a secure password, not admin123! |
 
 4. **Deploy**
    - Click **"Create Web Service"**
@@ -129,9 +133,9 @@ If you prefer manual setup:
 1. Once deployed, Render provides a URL like: `https://necf-treasury.onrender.com`
 2. Visit the URL in your browser
 3. You should see the NECF Treasury login page
-4. Try logging in with default credentials:
-   - **Username**: `admin`
-   - **Password**: `admin123`
+4. Try logging in with the admin credentials you set:
+   - **Username**: Value from `DEFAULT_ADMIN_USERNAME` (default: `admin`)
+   - **Password**: Value from `DEFAULT_ADMIN_PASSWORD` (check Render dashboard if auto-generated)
 
 ### 3.3 Verify Database Connection
 
@@ -145,12 +149,12 @@ If you prefer manual setup:
 
 ### 4.1 Change Default Admin Password
 
-⚠️ **IMPORTANT**: The default admin password is `admin123` - change it immediately!
+⚠️ **IMPORTANT**: If you used a weak or default password, change it immediately!
 
 1. Log in to your application
 2. Go to Admin Management (if you're a superuser)
 3. Create a new admin with a strong password
-4. Delete or change the default admin password
+4. Delete or change the default admin account
 
 ### 4.2 Update JWT Secret Key
 

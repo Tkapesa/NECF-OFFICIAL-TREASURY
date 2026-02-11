@@ -136,7 +136,7 @@ def startup_event():
     try:
         import subprocess
         result = subprocess.run(['tesseract', '--version'], 
-                              capture_output=True, text=True, timeout=5)
+                              capture_output=True, text=True, timeout=5, shell=False)
         version_line = result.stdout.split('\n')[0]
         print(f"✓ Tesseract OCR: {version_line}")
     except Exception as e:
@@ -148,6 +148,7 @@ def startup_event():
     if db_url.startswith("postgresql"):
         print(f"✓ Database: Neon PostgreSQL (connected)")
         # Test connection
+        db = None
         try:
             db = next(get_db())
             db.execute("SELECT 1")
@@ -157,13 +158,16 @@ def startup_event():
             print(f"✓ Current data: {receipt_count} receipts, {admin_count} admins")
         except Exception as e:
             print(f"⚠️  Database connection: FAILED - {str(e)}")
+        finally:
+            if db:
+                db.close()
     else:
         print(f"✓ Database: SQLite (local)")
     
     # 4. Uploads directory verification
     uploads_dir = "uploads"
     if os.path.exists(uploads_dir) and os.path.isdir(uploads_dir):
-        file_count = len([f for f in os.listdir(uploads_dir) if os.path.isfile(os.path.join(uploads_dir, f))])
+        file_count = sum(1 for f in os.listdir(uploads_dir) if os.path.isfile(os.path.join(uploads_dir, f)))
         print(f"✓ Uploads directory: EXISTS ({file_count} files)")
         print(f"  Path: {os.path.abspath(uploads_dir)}")
     else:

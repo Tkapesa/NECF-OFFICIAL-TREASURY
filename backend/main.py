@@ -95,11 +95,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Create uploads folder if not exists (MUST be before mount)
+os.makedirs("uploads", exist_ok=True)
+
 # Serve uploaded images
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Create uploads folder if not exists
-os.makedirs("uploads", exist_ok=True)
 
 # Initialize database on startup
 @app.on_event("startup")
@@ -122,6 +122,64 @@ def startup_event():
         existing_admin.is_superuser = True
         db.commit()
         print("✅ Existing admin upgraded to SUPERUSER")
+    
+    # ADD PRODUCTION VERIFICATION LOGS:
+    import sys
+    print("\n" + "="*60)
+    print("🚀 NECF TREASURY SYSTEM - PRODUCTION STARTUP")
+    print("="*60)
+    
+    # 1. Python version
+    print(f"✓ Python version: {sys.version.split()[0]}")
+    
+    # 2. Tesseract verification
+    try:
+        import subprocess
+        result = subprocess.run(['tesseract', '--version'], 
+                              capture_output=True, text=True, timeout=5)
+        version_line = result.stdout.split('\n')[0]
+        print(f"✓ Tesseract OCR: {version_line}")
+    except Exception as e:
+        print(f"⚠️  Tesseract OCR: NOT FOUND - {str(e)}")
+        print("   OCR functionality will not work!")
+    
+    # 3. Database verification
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./treasury.db")
+    if db_url.startswith("postgresql"):
+        print(f"✓ Database: Neon PostgreSQL (connected)")
+        # Test connection
+        try:
+            db = next(get_db())
+            db.execute("SELECT 1")
+            print(f"✓ Database connection: VERIFIED")
+            receipt_count = db.query(Receipt).count()
+            admin_count = db.query(Admin).count()
+            print(f"✓ Current data: {receipt_count} receipts, {admin_count} admins")
+        except Exception as e:
+            print(f"⚠️  Database connection: FAILED - {str(e)}")
+    else:
+        print(f"✓ Database: SQLite (local)")
+    
+    # 4. Uploads directory verification
+    uploads_dir = "uploads"
+    if os.path.exists(uploads_dir) and os.path.isdir(uploads_dir):
+        file_count = len([f for f in os.listdir(uploads_dir) if os.path.isfile(os.path.join(uploads_dir, f))])
+        print(f"✓ Uploads directory: EXISTS ({file_count} files)")
+        print(f"  Path: {os.path.abspath(uploads_dir)}")
+    else:
+        print(f"⚠️  Uploads directory: NOT FOUND")
+    
+    # 5. Environment check
+    env_mode = "PRODUCTION" if os.getenv("DATABASE_URL") else "DEVELOPMENT"
+    print(f"✓ Environment: {env_mode}")
+    
+    # 6. CORS origins
+    cors_origins = os.getenv("CORS_ORIGINS", "localhost")
+    print(f"✓ CORS origins: {cors_origins}")
+    
+    print("="*60)
+    print("✅ Startup complete - System ready")
+    print("="*60 + "\n")
 
 
 # ============ AUTH UTILITIES ============
